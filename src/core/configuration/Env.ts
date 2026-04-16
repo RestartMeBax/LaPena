@@ -93,6 +93,15 @@ export const Env = {
   get DOMAIN() {
     return getEnv("DOMAIN");
   },
+  get JWT_AUDIENCE() {
+    return getEnv("JWT_AUDIENCE", "VITE_JWT_AUDIENCE");
+  },
+  get API_DOMAIN() {
+    return getEnv("API_DOMAIN", "VITE_API_DOMAIN");
+  },
+  get API_ORIGIN() {
+    return getEnv("API_ORIGIN", "VITE_API_ORIGIN");
+  },
   get SUBDOMAIN() {
     return getEnv("SUBDOMAIN");
   },

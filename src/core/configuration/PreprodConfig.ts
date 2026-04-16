@@ -1,5 +1,6 @@
 import { GameEnv } from "./Config";
 import { DefaultServerConfig } from "./DefaultConfig";
+import { Env } from "./Env";
 
 export const preprodConfig = new (class extends DefaultServerConfig {
   env(): GameEnv {
@@ -12,7 +13,7 @@ export const preprodConfig = new (class extends DefaultServerConfig {
     return "0x4AAAAAAB7QetxHwRCKw-aP";
   }
   jwtAudience(): string {
-    return "openfront.dev";
+    return Env.JWT_AUDIENCE ?? Env.DOMAIN ?? "openfront.dev";
   }
   allowedFlares(): string[] | undefined {
     return undefined;

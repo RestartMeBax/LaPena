@@ -1,6 +1,7 @@
 import newsItemsFallback from "resources/news.json";
 import { z } from "zod";
 import type { NewsItem } from "../core/ApiSchemas";
+import { Env } from "../core/configuration/Env";
 import {
   ClanLeaderboardResponse,
   ClanLeaderboardResponseSchema,
@@ -273,13 +274,22 @@ export async function createCheckoutSession(
 }
 
 export function getApiBase() {
+  const explicitApiOrigin = Env.API_ORIGIN;
+  if (explicitApiOrigin) {
+    return explicitApiOrigin.replace(/\/$/, "");
+  }
+
+  const explicitApiDomain = Env.API_DOMAIN;
+  if (explicitApiDomain) {
+    if (/^https?:\/\//i.test(explicitApiDomain)) {
+      return explicitApiDomain.replace(/\/$/, "");
+    }
+    return `https://${explicitApiDomain}`;
+  }
+
   const domainname = getAudience();
 
   if (domainname === "localhost") {
-    const apiDomain = process?.env?.API_DOMAIN;
-    if (apiDomain) {
-      return `https://${apiDomain}`;
-    }
     return localStorage.getItem("apiHost") ?? "http://localhost:8787";
   }
 

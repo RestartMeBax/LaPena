@@ -119,10 +119,15 @@ export async function userAuth(
     const { iss, aud } = payload;
 
     const expectedIssuer = getApiBase();
-    const isLocalIssuer = expectedIssuer.startsWith("http://localhost") && typeof iss === "string" && iss.startsWith("http://localhost");
-    if (iss !== expectedIssuer && !isLocalIssuer) {
+    const pageIssuer = window.location.origin;
+    const allowedIssuers = new Set([expectedIssuer, pageIssuer]);
+    const isLocalIssuer =
+      expectedIssuer.startsWith("http://localhost") &&
+      typeof iss === "string" &&
+      iss.startsWith("http://localhost");
+    if (typeof iss !== "string" || (!allowedIssuers.has(iss) && !isLocalIssuer)) {
       // JWT was not issued by the correct server
-      console.error('unexpected "iss" claim value', iss, expectedIssuer);
+      console.error('unexpected "iss" claim value', iss, [...allowedIssuers]);
       logOut();
       return false;
     }

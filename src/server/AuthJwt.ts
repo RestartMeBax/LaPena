@@ -59,7 +59,6 @@ export async function verifyAuthToken(
   const verifyOptions = isLocalAudience
     ? undefined
     : {
-        issuer: getIssuerFromRequest(req),
         audience,
       };
 

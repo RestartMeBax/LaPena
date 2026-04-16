@@ -13,6 +13,26 @@ declare global {
   }
 }
 
+function sanitizeEnvValue(raw: unknown): string | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const value = String(raw).trim();
+  if (!value) {
+    return undefined;
+  }
+
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1).trim();
+  }
+
+  return value;
+}
+
 function getEnv(key: string, viteKey?: string): string | undefined {
   const vKey = viteKey ?? key;
 
@@ -21,8 +41,9 @@ function getEnv(key: string, viteKey?: string): string | undefined {
   try {
     if (typeof import.meta !== "undefined" && import.meta.env) {
       const val = import.meta.env[vKey] ?? import.meta.env[key];
-      if (val !== undefined) {
-        return String(val);
+      const sanitized = sanitizeEnvValue(val);
+      if (sanitized !== undefined) {
+        return sanitized;
       }
     }
   } catch {
@@ -33,8 +54,9 @@ function getEnv(key: string, viteKey?: string): string | undefined {
   try {
     if (typeof process !== "undefined" && process.env) {
       const val = process.env[key];
-      if (val !== undefined) {
-        return val;
+      const sanitized = sanitizeEnvValue(val);
+      if (sanitized !== undefined) {
+        return sanitized;
       }
     }
   } catch {

@@ -203,29 +203,45 @@ async function refreshJwt(): Promise<void> {
 }
 
 async function doRefreshJwt(): Promise<void> {
-  try {
-    console.log("Refreshing jwt");
-    const response = await fetchWithTimeout("/api/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-    });
-    if (response.status !== 200) {
-      console.error("Refresh failed", response);
-      logOut();
-      return;
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`Refreshing jwt (attempt ${attempt}/${maxAttempts})`);
+      const response = await fetchWithTimeout("/api/auth/refresh", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (response.status === 200) {
+        const json = await response.json();
+        const { jwt, expiresIn } = json;
+        __expiresAt = Date.now() + expiresIn * 1000;
+        console.log("Refresh succeeded");
+        __jwt = jwt;
+        invalidateUserMe();
+        return;
+      }
+
+      if (response.status === 401 || response.status === 403) {
+        console.error("Refresh rejected", response.status);
+        logOut();
+        return;
+      }
+
+      const retryable = response.status >= 500;
+      console.error("Refresh failed", response.status);
+      if (!retryable || attempt === maxAttempts) {
+        // Keep current auth state on transient backend failures.
+        return;
+      }
+    } catch (e) {
+      console.error("Refresh failed", e);
+      if (attempt === maxAttempts) {
+        // Network/transient failure: keep current state and allow later retries.
+        return;
+      }
     }
-    const json = await response.json();
-    const { jwt, expiresIn } = json;
-    __expiresAt = Date.now() + expiresIn * 1000;
-    console.log("Refresh succeeded");
-    __jwt = jwt;
-    invalidateUserMe();
-  } catch (e) {
-    console.error("Refresh failed", e);
-    // if server unreachable, just clear jwt
-    __jwt = null;
-    invalidateUserMe();
-    return;
+    await new Promise((resolve) => window.setTimeout(resolve, attempt * 300));
   }
 }
 

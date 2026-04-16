@@ -26,7 +26,6 @@ RUN npm run build-prod
 # Production dependencies stage - separate from build
 FROM base AS prod-deps
 ENV HUSKY=0
-ENV NPM_CONFIG_IGNORE_SCRIPTS=1
 COPY package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev

@@ -1,0 +1,32 @@
+import { FetchGameMapLoader } from "src/core/game/FetchGameMapLoader";
+import { GameMapType } from "src/core/game/Game";
+import { GameMapLoader } from "src/core/game/GameMapLoader";
+import { logger } from "./Logger";
+
+let mapLoader: GameMapLoader | null = null;
+
+const log = logger.child({ component: "MapLandTiles" });
+
+const MASTER_PORT = parseInt(process.env.PORT ?? "8787", 10);
+
+// Gets or creates the map loader, uses FetchGameMapLoader pointing to the master server.
+function getMapLoader(): GameMapLoader {
+  mapLoader ??= new FetchGameMapLoader(
+    `http://localhost:${MASTER_PORT}/maps`,
+  );
+  return mapLoader;
+}
+
+// Gets the number of land tiles for a map
+// FetchGameMapLoader already caches maps, so no need for additional caching here.
+export async function getMapLandTiles(map: GameMapType): Promise<number> {
+  try {
+    const loader = getMapLoader();
+    const mapData = loader.getMapData(map);
+    const manifest = await mapData.manifest();
+    return manifest.map.num_land_tiles;
+  } catch (error) {
+    log.error(`Failed to load manifest for ${map}: ${error}`, { map });
+    return 1_000_000; // Default fallback
+  }
+}

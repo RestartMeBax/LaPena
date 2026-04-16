@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Robuste - Sign In</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; }
+      body {
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #e8f0ff;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        background: url('/images/Robuste.webp') center center / cover no-repeat;
+      }
+      .bg-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        background: linear-gradient(135deg, rgba(4,10,26,0.88) 0%, rgba(6,16,36,0.75) 100%);
+      }
+      .auth-wrap {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        min-height: 100vh;
+      }
+      .auth-card {
+        width: 100%;
+        max-width: 560px;
+        background: rgba(8, 18, 40, 0.93);
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 24px;
+        padding: 52px 56px;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.60);
+        backdrop-filter: blur(28px);
+      }
+      .auth-logo {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 40px;
+      }
+      .auth-logo img { width: 260px; height: auto; }
+      .auth-tabs {
+        display: flex;
+        background: rgba(255,255,255,0.06);
+        border-radius: 14px;
+        padding: 5px;
+        margin-bottom: 36px;
+        gap: 4px;
+      }
+      .auth-tab {
+        flex: 1;
+        padding: 14px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: #6b8bb0;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      .auth-tab.active {
+        background: #1b3d72;
+        color: #e0f0ff;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      }
+      .field { margin-bottom: 20px; }
+      .field label {
+        display: block;
+        font-size: 0.88rem;
+        color: #7fa0cc;
+        margin-bottom: 8px;
+        letter-spacing: 0.04em;
+        font-weight: 600;
+      }
+      .field input {
+        width: 100%;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 12px;
+        color: #ddeeff;
+        padding: 16px 18px;
+        font-size: 1rem;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      .field input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.22);
+      }
+      .password-row { display: flex; }
+      .password-row input { border-radius: 12px 0 0 12px; border-right: none; }
+      .toggle-vis {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+        color: #7fa0cc;
+        padding: 16px 14px;
+        cursor: pointer;
+        font-size: 0.84rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .btn-primary {
+        width: 100%;
+        margin-top: 10px;
+        padding: 17px;
+        border: none;
+        border-radius: 13px;
+        background: linear-gradient(135deg, #b91c1c, #dc2626);
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.1s;
+      }
+      .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+      .btn-primary:active { transform: none; }
+      .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+      .message {
+        margin-top: 22px;
+        padding: 15px 17px;
+        border-radius: 12px;
+        font-size: 0.93rem;
+        line-height: 1.5;
+        display: none;
+      }
+      .message--success { background: rgba(34,197,94,0.13); border: 1px solid rgba(34,197,94,0.4); color: #bbf7d0; }
+      .message--error   { background: rgba(239,68,68,0.13);  border: 1px solid rgba(239,68,68,0.4);  color: #fecaca; }
+      .message--info    { background: rgba(59,130,246,0.13); border: 1px solid rgba(59,130,246,0.4); color: #bfdbfe; }
+      .auth-note {
+        margin-top: 22px;
+        text-align: center;
+        font-size: 0.83rem;
+        color: #3d5a7a;
+      }
+      @media (max-width: 620px) {
+        .auth-card { padding: 36px 24px; }
+        .auth-logo img { width: 200px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg"></div>
+    <div class="bg-overlay"></div>
+    <div class="auth-wrap">
+      <div class="auth-card">
+        <div class="auth-logo">
+          <img src="/images/RobusteLogo.svg" alt="Robuste" />
+        </div>
+        <div class="auth-tabs">
+          <button class="auth-tab" id="tab-login" onclick="switchTab('login')">SIGN IN</button>
+          <button class="auth-tab" id="tab-register" onclick="switchTab('register')">CREATE ACCOUNT</button>
+        </div>
+        <div id="forms"></div>
+        <div id="message" class="message"></div>
+        <p class="auth-note">By signing in you agree to our Terms of Service.</p>
+      </div>
+    </div>
+    <script>
+      var query = new URLSearchParams(window.location.search);
+      var state = {
+        mode: query.get('mode') === 'register' ? 'register' : 'login',
+        loading: false,
+        loginToken: query.get('login-token'),
+        redirectUrl: query.get('redirect') || '/',
+      };
+      var forms = document.getElementById('forms');
+      var message = document.getElementById('message');
+
+      function switchTab(mode) { state.mode = mode; render(); }
+
+      function updateTabs() {
+        document.getElementById('tab-login').classList.toggle('active', state.mode === 'login');
+        document.getElementById('tab-register').classList.toggle('active', state.mode === 'register');
+      }
+
+      function field(id, label, type, placeholder, ac) {
+        return '<div class="field"><label for="' + id + '">' + label + '</label>'
+          + '<input id="' + id + '" name="' + id + '" type="' + type
+          + '" placeholder="' + placeholder + '" autocomplete="' + (ac || 'off') + '" /></div>';
+      }
+
+      function passwordField() {
+        return '<div class="field"><label for="password">Password</label>'
+          + '<div class="password-row">'
+          + '<input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" />'
+          + '<button type="button" class="toggle-vis" id="pw-toggle" onclick="togglePw()">Show</button>'
+          + '</div></div>';
+      }
+
+      function render() {
+        updateTabs();
+        clearMessage();
+        if (state.mode === 'login') {
+          forms.innerHTML = field('email', 'Email', 'email', 'you@example.com', 'email')
+            + passwordField()
+            + '<button class="btn-primary" id="submit-btn" onclick="onSubmit()">SIGN IN</button>';
+        } else {
+          forms.innerHTML = field('email', 'Email', 'email', 'you@example.com', 'email')
+            + field('displayName', 'Display Name', 'text', 'RobustePlayer', 'username')
+            + field('profilePicture', 'Profile Picture URL (optional)', 'url', 'https://...', 'off')
+            + passwordField()
+            + '<button class="btn-primary" id="submit-btn" onclick="onSubmit()">CREATE ACCOUNT</button>';
+        }
+        if (state.loading) {
+          var b = document.getElementById('submit-btn');
+          if (b) b.disabled = true;
+        }
+      }
+
+      function togglePw() {
+        var inp = document.getElementById('password');
+        var tog = document.getElementById('pw-toggle');
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+        tog.textContent = inp.type === 'password' ? 'Show' : 'Hide';
+        inp.focus();
+      }
+
+      function setLoading(v) { state.loading = v; render(); }
+
+      function showMessage(text, type) {
+        message.textContent = text;
+        message.className = 'message message--' + (type || 'info');
+        message.style.display = 'block';
+      }
+
+      function clearMessage() {
+        message.style.display = 'none';
+        message.textContent = '';
+        message.className = 'message';
+      }
+
+      async function onSubmit() {
+        var emailEl = document.getElementById('email');
+        var passwordEl = document.getElementById('password');
+        var email = emailEl ? emailEl.value.trim() : '';
+        var password = passwordEl ? passwordEl.value : '';
+        var displayNameEl = document.getElementById('displayName');
+        var profilePicEl = document.getElementById('profilePicture');
+        var displayName = state.mode === 'register' && displayNameEl ? displayNameEl.value.trim() : undefined;
+        var profilePicture = state.mode === 'register' && profilePicEl ? profilePicEl.value.trim() : undefined;
+
+        if (!email || !password) return showMessage('Email and password are required.', 'error');
+        if (!email.includes('@')) return showMessage('Please enter a valid email address.', 'error');
+        if (password.length < 8) return showMessage('Password must be at least 8 characters.', 'error');
+        if (state.mode === 'register' && !displayName) return showMessage('Please enter a display name.', 'error');
+
+        var payload = { email: email, password: password };
+        if (state.mode === 'register') {
+          payload.displayName = displayName;
+          if (profilePicture) payload.profilePicture = profilePicture;
+        }
+
+        var endpoint = state.mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+        setLoading(true);
+        clearMessage();
+
+        try {
+          var res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
+          var data = await res.json();
+          if (!res.ok) {
+            showMessage(data.error || 'Something went wrong. Please try again.', 'error');
+            return;
+          }
+          showMessage(state.mode === 'login' ? 'Signed in! Redirecting...' : 'Account created! Redirecting...', 'success');
+          setTimeout(function() { window.location.href = state.redirectUrl; }, 1000);
+        } catch (e) {
+          showMessage('Unable to reach the server. Check your connection.', 'error');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      async function processLoginToken(token) {
+        showMessage('Logging in with token...', 'info');
+        try {
+          var res = await fetch('/api/auth/login/token?login-token=' + encodeURIComponent(token), { credentials: 'include' });
+          if (!res.ok) {
+            showMessage('Invalid or expired login token. Please sign in manually.', 'error');
+            return;
+          }
+          var j = await res.json();
+          showMessage('Welcome back, ' + j.email + '! Redirecting...', 'success');
+          setTimeout(function() { window.location.href = state.redirectUrl; }, 900);
+        } catch (e) {
+          showMessage('Unable to verify token. Please try again.', 'error');
+        }
+      }
+
+      render();
+      if (state.loginToken) processLoginToken(state.loginToken);
+    </script>
+  </body>
+</html>

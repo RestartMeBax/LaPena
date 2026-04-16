@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Robuste Admin Dashboard</title>
+    <style>
+      :root {
+        --bg: #0c1424;
+        --bg-card: #101d33;
+        --bg-card-2: #132742;
+        --line: #2a4368;
+        --text: #e7f1ff;
+        --muted: #9db4d6;
+        --ok: #2dc98c;
+        --bad: #e85b6e;
+        --cta: #2fa4ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 20% -10%, #1d3a67 0%, transparent 35%),
+          radial-gradient(circle at 120% 10%, #11375c 0%, transparent 30%),
+          linear-gradient(150deg, #08111f 0%, #111f36 45%, #0a1525 100%);
+        padding: 28px;
+      }
+
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+
+      .card {
+        background: linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card-2) 100%);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 20px;
+      }
+
+      h1, h2, h3 {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+
+      .grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid #3c5f92;
+        background: #0d1a2f;
+        color: var(--text);
+        padding: 10px 12px;
+      }
+
+      textarea {
+        min-height: 92px;
+        resize: vertical;
+      }
+
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 700;
+        cursor: pointer;
+        color: #04203e;
+        background: linear-gradient(145deg, #50bbff, var(--cta));
+      }
+
+      .danger {
+        background: linear-gradient(145deg, #ff8f9c, #ff6478);
+      }
+
+      .mini-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 10px;
+      }
+
+      .status {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #0b182c;
+      }
+
+      .status.ok {
+        border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
+      }
+
+      .status.bad {
+        border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 720px;
+      }
+
+      th,
+      td {
+        padding: 9px 10px;
+        border-bottom: 1px solid #243e62;
+        text-align: left;
+        font-size: 13px;
+      }
+
+      th {
+        color: #b7c9e4;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 11px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 16px;
+        }
+
+        .grid.two {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="card">
+        <div class="row">
+          <div class="grid">
+            <h1>Robuste Admin Dashboard</h1>
+            <p>
+              Use your logged-in admin account. This panel manages flags, skins,
+              news, map entries, and shop items.
+            </p>
+          </div>
+          <div class="row">
+            <button id="refreshAll">Refresh All</button>
+            <button id="reauth" class="danger">Re-check Access</button>
+          </div>
+        </div>
+        <div id="status" class="status" style="margin-top:12px">
+          Checking session...
+        </div>
+      </section>
+
+      <section id="content" class="grid hidden">
+        <section class="card">
+          <h2>Create Flag / Skin</h2>
+          <div class="grid two" style="margin-top: 14px">
+            <div class="grid">
+              <h3>Add Flag</h3>
+              <div class="field"><label>Name</label><input id="flagName" /></div>
+              <div class="field"><label>Description</label><textarea id="flagDescription"></textarea></div>
+              <div class="field"><label>Image URL</label><input id="flagImageUrl" /></div>
+              <button id="addFlag">Add Flag</button>
+            </div>
+            <div class="grid">
+              <h3>Add Skin</h3>
+              <div class="field"><label>Name</label><input id="skinName" /></div>
+              <div class="field"><label>Description</label><textarea id="skinDescription"></textarea></div>
+              <div class="field"><label>Image URL</label><input id="skinImageUrl" /></div>
+              <button id="addSkin">Add Skin</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Create News</h2>
+          <div class="grid two" style="margin-top: 14px">
+            <div class="grid">
+              <div class="field"><label>Title</label><input id="newsTitle" /></div>
+              <div class="field"><label>Description</label><textarea id="newsDescription"></textarea></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Target URL</label><input id="newsUrl" /></div>
+              <div class="field"><label>Image URL</label><input id="newsImageUrl" /></div>
+              <button id="addNews">Add News</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Create Map Entry</h2>
+          <p style="margin-top:8px">
+            Live picker support currently works when Map Key matches an existing map enum key/value (for example World, Europe, NorthAmerica).
+          </p>
+          <div class="grid two" style="margin-top: 14px">
+            <div class="grid">
+              <div class="field">
+                <label>Map Key</label>
+                <input id="mapKey" placeholder="custom_world_1" list="mapKeyOptions" />
+                <datalist id="mapKeyOptions"></datalist>
+              </div>
+              <div class="field"><label>Map Name</label><input id="mapName" /></div>
+              <div class="field"><label>Description</label><textarea id="mapDescription"></textarea></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Preview Image URL</label><input id="mapImageUrl" /></div>
+              <div class="field"><label>Map Data URL</label><input id="mapUrl" /></div>
+              <div class="field">
+                <label>Enabled</label>
+                <select id="mapEnabled"><option value="true">Yes</option><option value="false">No</option></select>
+              </div>
+              <button id="addMap">Add Map Entry</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Create / Update Shop Item</h2>
+          <div class="grid two" style="margin-top: 14px">
+            <div class="grid">
+              <div class="field"><label>Item Type</label>
+                <select id="shopType">
+                  <option value="">-- select --</option>
+                  <option value="flag">flag</option>
+                  <option value="skin">skin</option>
+                  <option value="pack">pack</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Item Key</label>
+                <input id="shopKey" placeholder="founders_flag" list="shopKeyOptions" />
+                <datalist id="shopKeyOptions"></datalist>
+              </div>
+              <div class="field"><label>Title</label><input id="shopTitle" /></div>
+              <div class="field"><label>Description</label><textarea id="shopDescription"></textarea></div>
+            </div>
+            <div class="grid">
+              <div class="field"><label>Soft Price</label><input id="shopSoftPrice" type="number" min="0" /></div>
+              <div class="field"><label>Hard Price</label><input id="shopHardPrice" type="number" min="0" /></div>
+              <div class="field"><label>Image URL Helper</label><input id="shopImageUrl" placeholder="https://..." />
+                <div id="shopImageNote" style="display:none;color:#60a5fa;font-size:12px;margin-top:4px;">ℹ For skins, this image is used as the in-game appearance.</div>
+              </div>
+              <div id="shopSkinPreviewWrap" class="field" style="display:none">
+                <label>In-Game Territory Preview</label>
+                <canvas id="shopSkinPreview" width="320" height="160" style="display:block;width:100%;max-width:420px;height:auto;border:1px solid #35527a;border-radius:8px;background:#071a33;image-rendering:pixelated"></canvas>
+                <div class="row" style="justify-content:flex-start;gap:10px;margin-top:8px;flex-wrap:wrap">
+                  <button id="shopPreviewSkinBtn" type="button">Refresh Preview</button>
+                  <label style="font-size:12px;color:#9ec1ff">Zoom</label>
+                  <input id="shopSkinTileSize" type="range" min="1" max="8" value="2" style="width:120px" />
+                  <span id="shopSkinTileSizeVal" style="font-size:12px;color:#9ec1ff">2</span>
+                </div>
+                <div style="font-size:12px;color:#8ca5c7;margin-top:6px">Preview shows a smooth, close-to-image in-game look.</div>
+              </div>
+              <div class="field"><label>Metadata JSON</label><textarea id="shopMetadata" placeholder='{"imageUrl":"..."}'></textarea></div>
+              <div class="field">
+                <label>Enabled</label>
+                <select id="shopEnabled"><option value="true">Yes</option><option value="false">No</option></select>
+              </div>
+              <div class="row" style="justify-content:flex-start">
+                <button id="shopAutoKey" type="button">Auto Key From Title</button>
+                <button id="shopInjectImage" type="button">Inject Image Into Metadata</button>
+              </div>
+              <button id="upsertShop">Save Shop Item</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card grid two">
+          <div>
+            <h3>Flags</h3>
+            <div class="table-wrap"><table id="flagsTable"></table></div>
+          </div>
+          <div>
+            <h3>Skins</h3>
+            <div class="table-wrap"><table id="skinsTable"></table></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>News</h3>
+          <div class="table-wrap"><table id="newsTable"></table></div>
+        </section>
+
+        <section class="card">
+          <h3>Maps</h3>
+          <div class="table-wrap"><table id="mapsTable"></table></div>
+        </section>
+
+        <section class="card">
+          <h3>Shop Items</h3>
+          <div class="table-wrap"><table id="shopTable"></table></div>
+        </section>
+      </section>
+    </main>
+
+    <script>
+      let jwt = null;
+      let knownMaps = [];
+      let knownFlags = [];
+      let knownSkins = [];
+      let knownShopItems = [];
+
+      const statusEl = document.getElementById("status");
+      const contentEl = document.getElementById("content");
+
+      const htmlEsc = (value) =>
+        String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+
+      function setStatus(text, ok = true) {
+        statusEl.textContent = text;
+        statusEl.className = "status " + (ok ? "ok" : "bad");
+      }
+
+      async function refreshJwt() {
+        const response = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!response.ok) return null;
+        const json = await response.json();
+        return json.jwt || null;
+      }
+
+      async function requestJson(path, options = {}) {
+        const headers = { ...(options.headers || {}) };
+        if (jwt) {
+          headers.Authorization = `Bearer ${jwt}`;
+        }
+
+        const response = await fetch(path, {
+          ...options,
+          headers,
+          credentials: "include",
+        });
+        let body = {};
+        try {
+          body = await response.json();
+        } catch {
+          body = {};
+        }
+        return { ok: response.ok, status: response.status, body };
+      }
+
+      async function ensureAdminAccess() {
+        jwt = await refreshJwt();
+        if (!jwt) {
+          contentEl.classList.add("hidden");
+          setStatus("Not signed in. Sign in first, then reload this page.", false);
+          return false;
+        }
+
+        const probe = await requestJson("/api/admin/me");
+        if (!probe.ok || !probe.body.isAdmin) {
+          contentEl.classList.add("hidden");
+          setStatus(
+            "Signed in, but not admin. Make sure this is ludovickjeux@gmail.com.",
+            false,
+          );
+          return false;
+        }
+
+        contentEl.classList.remove("hidden");
+        setStatus(`Admin access granted for ${probe.body.email || "account"}.`);
+        return true;
+      }
+
+      function renderTable(elId, columns, rows) {
+        const table = document.getElementById(elId);
+        const head = `<tr>${columns.map((c) => `<th>${htmlEsc(c)}</th>`).join("")}</tr>`;
+        const body = rows
+          .map(
+            (row) =>
+              `<tr>${row
+                .map((v) => `<td>${htmlEsc(v)}</td>`)
+                .join("")}</tr>`,
+          )
+          .join("");
+        table.innerHTML = head + body;
+      }
+
+      function renderTableWithDelete(elId, columns, rows, endpointBase, entityLabel) {
+        const table = document.getElementById(elId);
+        const fullColumns = [...columns, "Actions"];
+        const head = `<tr>${fullColumns.map((c) => `<th>${htmlEsc(c)}</th>`).join("")}</tr>`;
+        const body = rows
+          .map((row) => {
+            const safeCells = row.values.map((v) => `<td>${htmlEsc(v)}</td>`).join("");
+            const deletePath = `${endpointBase}/${row.id}`;
+            const label = `${entityLabel} #${row.id}`;
+            const actionCell = `<td><button type="button" class="danger mini-btn delete-row-btn" data-delete-path="${htmlEsc(deletePath)}" data-delete-label="${htmlEsc(label)}">Delete</button></td>`;
+            return `<tr>${safeCells}${actionCell}</tr>`;
+          })
+          .join("");
+        table.innerHTML = head + body;
+      }
+
+      function normalizeValue(value) {
+        return String(value || "").trim().toLowerCase();
+      }
+
+      function slugify(value) {
+        return String(value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_+|_+$/g, "");
+      }
+
+      function parseJsonSafe(value) {
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed && typeof parsed === "object") return parsed;
+          return null;
+        } catch {
+          return null;
+        }
+      }
+
+      function formatJson(value) {
+        return JSON.stringify(value, null, 2);
+      }
+
+      function normalizeMapKey(value) {
+        return normalizeValue(value);
+      }
+
+      function setMapKeyOptions(maps) {
+        const options = document.getElementById("mapKeyOptions");
+        options.innerHTML = maps
+          .map((m) => `<option value="${htmlEsc(m.key || "")}"></option>`)
+          .join("");
+      }
+
+      function prefillMapFormIfKnown() {
+        const key = document.getElementById("mapKey").value;
+        const normalized = normalizeMapKey(key);
+        if (!normalized) return;
+
+        const match = knownMaps.find((m) => normalizeMapKey(m.key) === normalized);
+        if (!match) return;
+
+        document.getElementById("mapName").value = match.name || "";
+        document.getElementById("mapDescription").value = match.description || "";
+        document.getElementById("mapImageUrl").value = match.imageUrl || "";
+        document.getElementById("mapUrl").value = match.mapUrl || "";
+        document.getElementById("mapEnabled").value = match.enabled ? "true" : "false";
+        setStatus(`Loaded existing values for map key: ${match.key}.`);
+      }
+
+      function setShopKeyOptions() {
+        const options = document.getElementById("shopKeyOptions");
+        const itemType = normalizeValue(document.getElementById("shopType").value);
+
+        const values = new Set();
+
+        knownShopItems
+          .filter((i) => !itemType || normalizeValue(i.itemType) === itemType)
+          .forEach((i) => values.add(i.itemKey));
+
+        if (itemType === "flag") {
+          knownFlags.forEach((f) => {
+            values.add(f.name);
+            values.add(slugify(f.name));
+          });
+        }
+
+        if (itemType === "skin") {
+          knownSkins.forEach((s) => {
+            values.add(s.name);
+            values.add(slugify(s.name));
+          });
+        }
+
+        options.innerHTML = [...values]
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b))
+          .map((v) => `<option value="${htmlEsc(v)}"></option>`)
+          .join("");
+      }
+
+      function applyShopFields(data) {
+        if (data.itemType) document.getElementById("shopType").value = data.itemType;
+        if (data.itemKey) document.getElementById("shopKey").value = data.itemKey;
+        if (data.title !== undefined) document.getElementById("shopTitle").value = data.title;
+        if (data.description !== undefined)
+          document.getElementById("shopDescription").value = data.description;
+        if (data.softPrice !== undefined)
+          document.getElementById("shopSoftPrice").value =
+            data.softPrice === null ? "" : String(data.softPrice);
+        if (data.hardPrice !== undefined)
+          document.getElementById("shopHardPrice").value =
+            data.hardPrice === null ? "" : String(data.hardPrice);
+        if (data.enabled !== undefined)
+          document.getElementById("shopEnabled").value = data.enabled ? "true" : "false";
+        if (data.metadataJson !== undefined)
+          document.getElementById("shopMetadata").value = data.metadataJson || "";
+
+        const metadataObj = parseJsonSafe(document.getElementById("shopMetadata").value);
+        const imageFromMetadata =
+          metadataObj && typeof metadataObj.imageUrl === "string"
+            ? metadataObj.imageUrl
+            : "";
+        document.getElementById("shopImageUrl").value = imageFromMetadata;
+
+        setShopKeyOptions();
+        syncShopTypeVisuals();
+      }
+
+      function syncShopTypeVisuals() {
+        const type = document.getElementById("shopType").value;
+        const note = document.getElementById("shopImageNote");
+        note.style.display = type === "skin" ? "block" : "none";
+        const previewWrap = document.getElementById("shopSkinPreviewWrap");
+        previewWrap.style.display = type === "skin" ? "block" : "none";
+        if (type === "skin") {
+          renderShopSkinPreview();
+        }
+      }
+
+      function prefillShopIfKnown() {
+        const itemType = normalizeValue(document.getElementById("shopType").value);
+        const itemKeyRaw = document.getElementById("shopKey").value.trim();
+        const itemKey = normalizeValue(itemKeyRaw);
+        if (!itemKey) return;
+
+        const existing = knownShopItems.find(
+          (i) =>
+            normalizeValue(i.itemKey) === itemKey &&
+            (!itemType || normalizeValue(i.itemType) === itemType),
+        );
+        if (existing) {
+          applyShopFields(existing);
+          setStatus(`Loaded existing shop item: ${existing.itemKey}.`);
+          return;
+        }
+
+        if (itemType === "flag") {
+          const flag = knownFlags.find(
+            (f) => normalizeValue(f.name) === itemKey || slugify(f.name) === itemKey,
+          );
+          if (flag) {
+            applyShopFields({
+              title: flag.name,
+              description: flag.description || "",
+              metadataJson: formatJson({ imageUrl: flag.imageUrl || "" }),
+            });
+            setStatus(`Prefilled from flag: ${flag.name}.`);
+            return;
+          }
+        }
+
+        if (itemType === "skin") {
+          const skin = knownSkins.find(
+            (s) => normalizeValue(s.name) === itemKey || slugify(s.name) === itemKey,
+          );
+          if (skin) {
+            applyShopFields({
+              title: skin.name,
+              description: skin.description || "",
+              metadataJson: formatJson({ imageUrl: skin.imageUrl || "" }),
+            });
+            setStatus(`Prefilled from skin: ${skin.name}.`);
+          }
+        }
+      }
+
+      function autoFillShopKeyFromTitle() {
+        const title = document.getElementById("shopTitle").value;
+        const key = slugify(title);
+        if (!key) {
+          setStatus("Enter a title first to generate item key.", false);
+          return;
+        }
+        document.getElementById("shopKey").value = key;
+        setStatus(`Generated key: ${key}.`);
+        setShopKeyOptions();
+      }
+
+      function injectImageIntoMetadata() {
+        const imageUrl = document.getElementById("shopImageUrl").value.trim();
+        if (!imageUrl) {
+          setStatus("Add an image URL first.", false);
+          return;
+        }
+
+        const metadataText = document.getElementById("shopMetadata").value.trim();
+        const parsed = metadataText ? parseJsonSafe(metadataText) : {};
+        if (parsed === null) {
+          setStatus("Metadata JSON is invalid.", false);
+          return;
+        }
+
+        parsed.imageUrl = imageUrl;
+        document.getElementById("shopMetadata").value = formatJson(parsed);
+        setStatus("Injected image URL into metadata JSON.");
+      }
+
+      function toProxiedImageUrl(raw) {
+        const val = (raw || "").trim();
+        if (!val) return "";
+        if (val.startsWith("/api/assets/image-proxy")) return val;
+        if (val.startsWith("http://") || val.startsWith("https://")) {
+          return `/api/assets/image-proxy?url=${encodeURIComponent(val)}`;
+        }
+        return val;
+      }
+
+      function drawSkinPreviewPlaceholder(message) {
+        const canvas = document.getElementById("shopSkinPreview");
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#071a33";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#35527a";
+        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#9ec1ff";
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+      }
+
+      function renderShopSkinPreview() {
+        const type = normalizeValue(document.getElementById("shopType").value);
+        if (type !== "skin") return;
+
+        const raw = document.getElementById("shopImageUrl").value.trim();
+        if (!raw) {
+          drawSkinPreviewPlaceholder("Enter an image URL to preview.");
+          return;
+        }
+
+        const canvas = document.getElementById("shopSkinPreview");
+        const ctx = canvas.getContext("2d");
+        const zoom = Math.max(
+          1,
+          Math.min(8, parseInt(document.getElementById("shopSkinTileSize").value, 10) || 2),
+        );
+
+        ctx.fillStyle = "#071a33";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#9ec1ff";
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Loading preview...", canvas.width / 2, canvas.height / 2);
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const destW = canvas.width * (1 + zoom * 0.08);
+            const destH = canvas.height * (1 + zoom * 0.08);
+            const dx = (canvas.width - destW) / 2;
+            const dy = (canvas.height - destH) / 2;
+            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(img, dx, dy, destW, destH);
+
+            const fade = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            fade.addColorStop(0, "rgba(255,255,255,0.06)");
+            fade.addColorStop(1, "rgba(0,0,0,0.08)");
+            ctx.fillStyle = fade;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          } catch (e) {
+            drawSkinPreviewPlaceholder("Could not render preview.");
+          }
+        };
+        img.onerror = () => drawSkinPreviewPlaceholder("Image failed to load.");
+        img.src = toProxiedImageUrl(raw);
+      }
+
+      async function loadAllLists() {
+        const [flags, skins, news, maps, shop] = await Promise.all([
+          requestJson("/api/admin/flags"),
+          requestJson("/api/admin/skins"),
+          requestJson("/api/admin/news"),
+          requestJson("/api/admin/maps"),
+          requestJson("/api/admin/shop-items"),
+        ]);
+
+        if (flags.ok) {
+          knownFlags = Array.isArray(flags.body.flags) ? flags.body.flags : [];
+          renderTableWithDelete(
+            "flagsTable",
+            ["ID", "Name", "Description", "Image URL"],
+            flags.body.flags.map((f) => ({
+              id: f.id,
+              values: [f.id, f.name, f.description, f.imageUrl || ""],
+            })),
+            "/api/admin/flags",
+            "flag",
+          );
+        } else {
+          knownFlags = [];
+        }
+
+        if (skins.ok) {
+          knownSkins = Array.isArray(skins.body.skins) ? skins.body.skins : [];
+          renderTableWithDelete(
+            "skinsTable",
+            ["ID", "Name", "Description", "Image URL"],
+            skins.body.skins.map((s) => ({
+              id: s.id,
+              values: [s.id, s.name, s.description, s.imageUrl || ""],
+            })),
+            "/api/admin/skins",
+            "skin",
+          );
+        } else {
+          knownSkins = [];
+        }
+
+        if (news.ok) {
+          renderTableWithDelete(
+            "newsTable",
+            ["ID", "Title", "Description", "URL", "Image URL"],
+            news.body.news.map((n) => ({
+              id: n.id,
+              values: [n.id, n.title, n.description, n.url || "", n.imageUrl || ""],
+            })),
+            "/api/admin/news",
+            "news item",
+          );
+        }
+
+        if (maps.ok) {
+          knownMaps = Array.isArray(maps.body.maps) ? maps.body.maps : [];
+          setMapKeyOptions(knownMaps);
+          renderTableWithDelete(
+            "mapsTable",
+            ["ID", "Key", "Name", "Description", "Map URL", "Enabled"],
+            maps.body.maps.map((m) => ({
+              id: m.id,
+              values: [m.id, m.key, m.name, m.description, m.mapUrl || "", m.enabled ? "yes" : "no"],
+            })),
+            "/api/admin/maps",
+            "map",
+          );
+        } else {
+          knownMaps = [];
+          setMapKeyOptions([]);
+        }
+
+        if (shop.ok) {
+          knownShopItems = Array.isArray(shop.body.items) ? shop.body.items : [];
+          renderTableWithDelete(
+            "shopTable",
+            ["ID", "Type", "Key", "Title", "Soft", "Hard", "Enabled"],
+            shop.body.items.map((i) => ({
+              id: i.id,
+              values: [
+                i.id,
+                i.itemType,
+                i.itemKey,
+                i.title,
+                i.softPrice ?? "",
+                i.hardPrice ?? "",
+                i.enabled ? "yes" : "no",
+              ],
+            })),
+            "/api/admin/shop-items",
+            "shop item",
+          );
+        } else {
+          knownShopItems = [];
+        }
+
+        setShopKeyOptions();
+      }
+
+      async function createEntity(endpoint, payload, successText) {
+        const response = await requestJson(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          setStatus(response.body.error || "Save failed", false);
+          return;
+        }
+        setStatus(successText);
+        await loadAllLists();
+      }
+
+      async function deleteEntity(path, label) {
+        const confirmed = window.confirm(`Delete ${label}? This cannot be undone.`);
+        if (!confirmed) return;
+
+        const response = await requestJson(path, { method: "DELETE" });
+        if (!response.ok) {
+          setStatus(response.body.error || `Delete failed for ${label}.`, false);
+          return;
+        }
+        setStatus(`${label} deleted.`);
+        await loadAllLists();
+      }
+
+      document.getElementById("refreshAll").addEventListener("click", async () => {
+        if (await ensureAdminAccess()) {
+          await loadAllLists();
+          setStatus("Data refreshed.");
+        }
+      });
+
+      document.getElementById("reauth").addEventListener("click", async () => {
+        await ensureAdminAccess();
+      });
+
+      document.getElementById("addFlag").addEventListener("click", async () => {
+        await createEntity(
+          "/api/admin/flags",
+          {
+            name: document.getElementById("flagName").value.trim(),
+            description: document.getElementById("flagDescription").value.trim(),
+            imageUrl: document.getElementById("flagImageUrl").value.trim(),
+          },
+          "Flag created.",
+        );
+      });
+
+      document.getElementById("addSkin").addEventListener("click", async () => {
+        await createEntity(
+          "/api/admin/skins",
+          {
+            name: document.getElementById("skinName").value.trim(),
+            description: document.getElementById("skinDescription").value.trim(),
+            imageUrl: document.getElementById("skinImageUrl").value.trim(),
+          },
+          "Skin created.",
+        );
+      });
+
+      document.getElementById("addNews").addEventListener("click", async () => {
+        await createEntity(
+          "/api/admin/news",
+          {
+            title: document.getElementById("newsTitle").value.trim(),
+            description: document.getElementById("newsDescription").value.trim(),
+            url: document.getElementById("newsUrl").value.trim(),
+            imageUrl: document.getElementById("newsImageUrl").value.trim(),
+          },
+          "News entry created.",
+        );
+      });
+
+      document.getElementById("addMap").addEventListener("click", async () => {
+        await createEntity(
+          "/api/admin/maps",
+          {
+            key: document.getElementById("mapKey").value.trim(),
+            name: document.getElementById("mapName").value.trim(),
+            description: document.getElementById("mapDescription").value.trim(),
+            imageUrl: document.getElementById("mapImageUrl").value.trim(),
+            mapUrl: document.getElementById("mapUrl").value.trim(),
+            enabled: document.getElementById("mapEnabled").value === "true",
+          },
+          "Map entry created.",
+        );
+      });
+
+      document.getElementById("mapKey").addEventListener("change", () => {
+        prefillMapFormIfKnown();
+      });
+
+      document.getElementById("shopType").addEventListener("change", () => {
+        setShopKeyOptions();
+        syncShopTypeVisuals();
+      });
+
+      document.getElementById("shopPreviewSkinBtn").addEventListener("click", () => {
+        renderShopSkinPreview();
+      });
+
+      document.getElementById("shopSkinTileSize").addEventListener("input", (e) => {
+        document.getElementById("shopSkinTileSizeVal").textContent = e.target.value;
+        renderShopSkinPreview();
+      });
+
+      let shopPreviewDebounce = null;
+      document.getElementById("shopImageUrl").addEventListener("input", () => {
+        if (shopPreviewDebounce) window.clearTimeout(shopPreviewDebounce);
+        shopPreviewDebounce = window.setTimeout(() => {
+          renderShopSkinPreview();
+        }, 180);
+      });
+
+      document.getElementById("shopKey").addEventListener("change", () => {
+        prefillShopIfKnown();
+      });
+
+      document.getElementById("shopAutoKey").addEventListener("click", () => {
+        autoFillShopKeyFromTitle();
+      });
+
+      document.getElementById("shopInjectImage").addEventListener("click", () => {
+        injectImageIntoMetadata();
+      });
+
+      document.addEventListener("click", async (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = target.closest(".delete-row-btn");
+        if (!button) return;
+
+        const path = button.getAttribute("data-delete-path") || "";
+        const label = button.getAttribute("data-delete-label") || "item";
+        if (!path) return;
+
+        await deleteEntity(path, label);
+      });
+
+      document.getElementById("upsertShop").addEventListener("click", async () => {
+        // Auto-inject imageUrl from helper field into metadata before saving
+        const imageUrlVal = document.getElementById("shopImageUrl").value.trim();
+        if (imageUrlVal) {
+          const metaRaw = document.getElementById("shopMetadata").value.trim();
+          const parsed = metaRaw ? parseJsonSafe(metaRaw) : {};
+          if (parsed !== null) {
+            parsed.imageUrl = imageUrlVal;
+            document.getElementById("shopMetadata").value = JSON.stringify(parsed, null, 2);
+          }
+        }
+
+        await createEntity(
+          "/api/admin/shop-items",
+          {
+            itemType: document.getElementById("shopType").value.trim(),
+            itemKey: document.getElementById("shopKey").value.trim(),
+            title: document.getElementById("shopTitle").value.trim(),
+            description: document.getElementById("shopDescription").value.trim(),
+            softPrice:
+              document.getElementById("shopSoftPrice").value === ""
+                ? null
+                : Number(document.getElementById("shopSoftPrice").value),
+            hardPrice:
+              document.getElementById("shopHardPrice").value === ""
+                ? null
+                : Number(document.getElementById("shopHardPrice").value),
+            metadataJson: document.getElementById("shopMetadata").value.trim(),
+            enabled: document.getElementById("shopEnabled").value === "true",
+          },
+          "Shop item saved.",
+        );
+      });
+
+      (async () => {
+        if (await ensureAdminAccess()) {
+          await loadAllLists();
+          syncShopTypeVisuals();
+        }
+      })();
+    </script>
+  </body>
+</html>

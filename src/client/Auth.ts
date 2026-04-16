@@ -14,6 +14,12 @@ let __jwt: string | null = null;
 let __refreshPromise: Promise<void> | null = null;
 let __expiresAt: number = 0;
 
+export function setAuthJwt(jwt: string, expiresInSeconds: number = 3600): void {
+  __jwt = jwt;
+  __expiresAt = Date.now() + Math.max(1, expiresInSeconds) * 1000;
+  invalidateUserMe();
+}
+
 function isUuidLike(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,

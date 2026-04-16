@@ -8,7 +8,7 @@ import {
 import { assetUrl } from "../core/AssetUrls";
 import { getRuntimeClientServerConfig } from "../core/configuration/ConfigLoader";
 import { fetchPlayerById, getUserMe } from "./Api";
-import { discordLogin, logOut } from "./Auth";
+import { discordLogin, logOut, setAuthJwt } from "./Auth";
 import "./components/baseComponents/stats/DiscordUserHeader";
 import "./components/baseComponents/stats/GameList";
 import "./components/baseComponents/stats/PlayerStatsTable";
@@ -386,9 +386,19 @@ export class AccountModal extends BaseModal {
         credentials: "include",
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        jwt?: string;
+        expiresIn?: number;
+      };
       if (!res.ok) { this.authError = data.error ?? "Something went wrong. Please try again."; return; }
-      window.location.reload();
+      if (typeof data.jwt === "string" && data.jwt.length > 0) {
+        setAuthJwt(data.jwt, typeof data.expiresIn === "number" ? data.expiresIn : 3600);
+      }
+      const userMe = await getUserMe();
+      this.userMeResponse = userMe || null;
+      this.authPassword = "";
+      this.authError = "";
     } catch {
       this.authError = "Unable to reach the server. Check your connection.";
     } finally {

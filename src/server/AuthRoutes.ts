@@ -6,11 +6,17 @@ function parseCookies(req: Request): Record<string, string> {
   const header = req.headers.cookie || "";
   return Object.fromEntries(
     header
-      .split("; ")
+      .split(";")
+      .map((part) => part.trim())
       .filter(Boolean)
       .map((cookie) => {
         const [name, ...value] = cookie.split("=");
-        return [name, decodeURIComponent(value.join("="))];
+        const rawValue = value.join("=");
+        try {
+          return [name, decodeURIComponent(rawValue)];
+        } catch {
+          return [name, rawValue];
+        }
       }),
   );
 }

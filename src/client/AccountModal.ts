@@ -7,7 +7,7 @@ import {
 } from "../core/ApiSchemas";
 import { assetUrl } from "../core/AssetUrls";
 import { getRuntimeClientServerConfig } from "../core/configuration/ConfigLoader";
-import { fetchPlayerById, getUserMe } from "./Api";
+import { fetchPlayerById, getApiBase, getUserMe } from "./Api";
 import { discordLogin, logOut, setAuthJwt } from "./Auth";
 import "./components/baseComponents/stats/DiscordUserHeader";
 import "./components/baseComponents/stats/GameList";
@@ -374,19 +374,33 @@ export class AccountModal extends BaseModal {
     if (password.length < 8) { this.authError = "Password must be at least 8 characters."; return; }
     if (this.authMode === "register" && !displayName) { this.authError = "Please enter a display name."; return; }
 
-    const endpoint = this.authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+    const endpointPath = this.authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+    const fallbackEndpoint = `${getApiBase()}${endpointPath}`;
     const body: Record<string, string> = { email, password };
     if (this.authMode === "register") body.displayName = displayName;
 
     this.authLoading = true;
     try {
-      const res = await fetch(endpoint, {
+      let res = await fetch(endpointPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as {
+
+      // If same-origin route is unavailable in split frontend/API deployments,
+      // retry against the configured API host.
+      if (res.status === 404 || res.status === 405) {
+        res = await fetch(fallbackEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+      }
+
+      const raw = await res.text();
+      const data = (raw ? JSON.parse(raw) : {}) as {
         error?: string;
         jwt?: string;
         expiresIn?: number;
@@ -399,7 +413,8 @@ export class AccountModal extends BaseModal {
       this.userMeResponse = userMe || null;
       this.authPassword = "";
       this.authError = "";
-    } catch {
+    } catch (error) {
+      console.error("Auth request failed", error);
       this.authError = "Unable to reach the server. Check your connection.";
     } finally {
       this.authLoading = false;

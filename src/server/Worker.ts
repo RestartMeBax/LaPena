@@ -46,6 +46,18 @@ const workerId = parseInt(process.env.WORKER_ID ?? "0");
 const log = logger.child({ comp: `w_${workerId}` });
 const playlist = new MapPlaylist();
 
+function getSiteFromHostname(hostname: string): string {
+  const normalized = hostname.toLowerCase();
+  if (normalized === "localhost" || normalized === "127.0.0.1") {
+    return normalized;
+  }
+  const parts = normalized.split(".").filter(Boolean);
+  if (parts.length < 2) {
+    return normalized;
+  }
+  return parts.slice(-2).join(".");
+}
+
 // Worker setup
 export async function startWorker() {
   log.info(`Worker starting...`);
@@ -123,18 +135,36 @@ export async function startWorker() {
   app.use(compression());
   app.use(express.json());
 
-  // CORS middleware for worker endpoints
+  // CORS middleware for browser-to-API requests
   app.use((req, res, next) => {
     const origin = req.get("origin");
-    // Allow requests from localhost ports (development)
-    if (origin && (origin.includes("localhost") || origin.includes("127.0.0.1"))) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res.setHeader(
-        "Access-Control-Allow-Headers",
-        "Content-Type, Authorization, Accept"
-      );
+    if (origin) {
+      try {
+        const originUrl = new URL(origin);
+        const originHost = originUrl.hostname;
+        const reqHost = (req.get("host") ?? "").split(":")[0];
+        const originSite = getSiteFromHostname(originHost);
+        const reqSite = getSiteFromHostname(reqHost);
+        const allowOrigin =
+          originHost === reqHost ||
+          (originSite === reqSite && originSite !== "");
+
+        if (allowOrigin) {
+          res.setHeader("Access-Control-Allow-Origin", origin);
+          res.setHeader("Access-Control-Allow-Credentials", "true");
+          res.setHeader(
+            "Access-Control-Allow-Methods",
+            "GET, POST, PUT, DELETE, OPTIONS",
+          );
+          res.setHeader(
+            "Access-Control-Allow-Headers",
+            "Content-Type, Authorization, Accept",
+          );
+          res.setHeader("Vary", "Origin");
+        }
+      } catch {
+        // Ignore malformed origin header.
+      }
     }
     if (req.method === "OPTIONS") {
       return res.sendStatus(200);

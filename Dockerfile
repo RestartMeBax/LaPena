@@ -27,6 +27,7 @@ RUN npm run build-prod
 FROM base AS prod-deps
 ENV HUSKY=0
 COPY package*.json ./
+RUN npm pkg delete scripts.prepare
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev
 
@@ -53,9 +54,8 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 
-# Copy node_modules from build stage.
-# This avoids prod-deps prepare/husky failures while preserving native module installs.
-COPY --from=build /usr/src/app/node_modules ./node_modules
+# Copy production node_modules from prod-deps stage.
+COPY --from=prod-deps /usr/src/app/node_modules ./node_modules
 COPY package*.json ./
 
 # Copy built artifacts from build stage

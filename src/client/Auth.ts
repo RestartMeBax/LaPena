@@ -9,10 +9,28 @@ import { generateCryptoRandomUUID } from "./Utils";
 export type UserAuth = { jwt: string; claims: TokenPayload } | false;
 
 const PERSISTENT_ID_KEY = "player_persistent_id";
+const AUTH_JWT_KEY = "auth_jwt";
+const AUTH_EXPIRES_AT_KEY = "auth_jwt_expires_at";
 
 let __jwt: string | null = null;
 let __refreshPromise: Promise<void> | null = null;
 let __expiresAt: number = 0;
+
+function loadAuthStateFromStorage(): void {
+  if (__jwt) return;
+  try {
+    const storedJwt = localStorage.getItem(AUTH_JWT_KEY);
+    const storedExpiresAtRaw = localStorage.getItem(AUTH_EXPIRES_AT_KEY);
+    const storedExpiresAt = Number(storedExpiresAtRaw ?? "0");
+    if (!storedJwt || !Number.isFinite(storedExpiresAt) || storedExpiresAt <= 0) {
+      return;
+    }
+    __jwt = storedJwt;
+    __expiresAt = storedExpiresAt;
+  } catch {
+    // Ignore storage errors in restricted environments.
+  }
+}
 
 function getAuthApiPrefix(): string {
   return getAudience() === "localhost" ? "" : getApiBase();
@@ -27,12 +45,24 @@ function getAuthRefreshUrls(): string[] {
 export function setAuthJwt(jwt: string, expiresInSeconds: number = 3600): void {
   __jwt = jwt;
   __expiresAt = Date.now() + Math.max(1, expiresInSeconds) * 1000;
+  try {
+    localStorage.setItem(AUTH_JWT_KEY, jwt);
+    localStorage.setItem(AUTH_EXPIRES_AT_KEY, String(__expiresAt));
+  } catch {
+    // Ignore storage errors in restricted environments.
+  }
   invalidateUserMe();
 }
 
 export function clearAuthState(): void {
   __jwt = null;
   __expiresAt = 0;
+  try {
+    localStorage.removeItem(AUTH_JWT_KEY);
+    localStorage.removeItem(AUTH_EXPIRES_AT_KEY);
+  } catch {
+    // Ignore storage errors in restricted environments.
+  }
   invalidateUserMe();
 }
 
@@ -119,6 +149,7 @@ export async function userAuth(
   shouldRefresh: boolean = true,
 ): Promise<UserAuth> {
   try {
+    loadAuthStateFromStorage();
     const jwt = __jwt;
     if (!jwt) {
       if (!shouldRefresh) {
@@ -243,10 +274,8 @@ async function doRefreshJwt(): Promise<void> {
         if (response.status === 200) {
           const json = await response.json();
           const { jwt, expiresIn } = json;
-          __expiresAt = Date.now() + expiresIn * 1000;
           console.log("Refresh succeeded", refreshUrl);
-          __jwt = jwt;
-          invalidateUserMe();
+          setAuthJwt(jwt, expiresIn);
           return;
         }
 

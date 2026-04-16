@@ -177,7 +177,8 @@ export async function startMaster() {
     );
   });
 
-  const PORT = parseInt(process.env.PORT ?? "8787", 10);
+  const parsedPort = Number.parseInt(process.env.PORT ?? "", 10);
+  const PORT = Number.isFinite(parsedPort) ? parsedPort : 3000;
   server.listen(PORT, () => {
     log.info(`Master HTTP server listening on port ${PORT}`);
   });

@@ -82,7 +82,8 @@ export class AuthDatabase {
   private readonly db: Database.Database;
 
   constructor() {
-    const preferredDataDir = path.join(process.cwd(), "data");
+    const preferredDataDir =
+      process.env.AUTH_DB_DIR?.trim() || path.join(process.cwd(), "data");
     let dataDir = preferredDataDir;
     try {
       fs.mkdirSync(dataDir, { recursive: true });

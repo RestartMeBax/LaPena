@@ -481,7 +481,8 @@ export async function getPublicAdminMaps(): Promise<PublicAdminMap[]> {
 
 export async function getNews(): Promise<NewsItem[]> {
   try {
-    const res = await fetch(`${getApiBase()}/news.json`, {
+    // Keep live content on same origin to avoid CORS differences between web and api domains.
+    const res = await fetch(`/news.json`, {
       headers: { Accept: "application/json" },
     });
     if (res.status !== 200) {

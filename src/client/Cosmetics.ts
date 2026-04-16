@@ -17,7 +17,6 @@ import {
 import { UserSettings } from "../core/game/UserSettings";
 import {
   createCheckoutSession,
-  getApiBase,
   getUserMe,
   invalidateUserMe,
   purchaseWithCurrency,
@@ -119,7 +118,8 @@ export async function fetchCosmetics(): Promise<Cosmetics | null> {
   }
   __cosmetics = (async () => {
     try {
-      const response = await fetch(`${getApiBase()}/cosmetics.json`);
+      // Keep live content on same origin to avoid CORS differences between web and api domains.
+      const response = await fetch(`/cosmetics.json`);
       if (!response.ok) {
         console.error(`HTTP error! status: ${response.status}`);
         return null;

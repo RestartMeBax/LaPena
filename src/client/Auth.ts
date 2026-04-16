@@ -155,11 +155,13 @@ export async function userAuth(
     if (result.success) {
       claims = result.data;
     } else {
-      const isLocalAudience = myAud === "localhost";
+      const payloadSubRaw = typeof payload.sub === "string" ? payload.sub : null;
       const payloadSub =
-        typeof payload.sub === "string" && isUuidLike(payload.sub)
-          ? payload.sub
-          : null;
+        payloadSubRaw === null
+          ? null
+          : isUuidLike(payloadSubRaw)
+            ? payloadSubRaw
+            : base64urlToUuid(payloadSubRaw);
       const payloadIat = typeof payload.iat === "number" ? payload.iat : 0;
       const payloadExp = typeof payload.exp === "number" ? payload.exp : 0;
       const payloadIss = typeof payload.iss === "string" ? payload.iss : "";
@@ -167,7 +169,7 @@ export async function userAuth(
       const payloadJti =
         typeof payload.jti === "string" ? payload.jti : "local-dev";
 
-      if (!isLocalAudience || !payloadSub || payloadExp <= 0 || !payloadIss || !payloadAud) {
+      if (!payloadSub || payloadExp <= 0 || !payloadIss || !payloadAud) {
         const error = z.prettifyError(result.error);
         console.error("Invalid payload", error);
         return false;

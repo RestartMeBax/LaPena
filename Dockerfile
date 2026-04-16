@@ -68,6 +68,9 @@ RUN rm -rf ./resources/maps
 COPY tsconfig.json ./
 COPY src ./src
 
+# AuthDatabase creates /usr/src/app/data at runtime; ensure the node user can write there.
+RUN mkdir -p /usr/src/app/data && chown -R node:node /usr/src/app/data
+
 
 ARG GIT_COMMIT=unknown
 RUN echo "$GIT_COMMIT" > static/commit.txt

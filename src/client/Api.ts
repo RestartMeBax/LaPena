@@ -15,7 +15,7 @@ import {
   UserMeResponseSchema,
 } from "../core/ApiSchemas";
 import { AnalyticsRecord, AnalyticsRecordSchema } from "../core/Schemas";
-import { getAuthHeader, logOut, userAuth } from "./Auth";
+import { clearAuthState, getAuthHeader, logOut, userAuth } from "./Auth";
 
 export type PublicAdminMap = {
   id: number;
@@ -103,7 +103,7 @@ export async function getUserMe(): Promise<UserMeResponse | false> {
         },
       });
       if (response.status === 401) {
-        await logOut();
+        clearAuthState();
         return false;
       }
       if (response.status !== 200) return false;

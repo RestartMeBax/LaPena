@@ -18,9 +18,21 @@ function getAuthApiPrefix(): string {
   return getAudience() === "localhost" ? "" : getApiBase();
 }
 
+function getAuthRefreshUrls(): string[] {
+  const apiHostRefresh = `${getAuthApiPrefix()}/api/auth/refresh`;
+  const sameOriginRefresh = "/api/auth/refresh";
+  return Array.from(new Set([apiHostRefresh, sameOriginRefresh]));
+}
+
 export function setAuthJwt(jwt: string, expiresInSeconds: number = 3600): void {
   __jwt = jwt;
   __expiresAt = Date.now() + Math.max(1, expiresInSeconds) * 1000;
+  invalidateUserMe();
+}
+
+export function clearAuthState(): void {
+  __jwt = null;
+  __expiresAt = 0;
   invalidateUserMe();
 }
 
@@ -221,32 +233,40 @@ async function doRefreshJwt(): Promise<void> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       console.log(`Refreshing jwt (attempt ${attempt}/${maxAttempts})`);
-      const authApiPrefix = getAuthApiPrefix();
-      const response = await fetchWithTimeout(`${authApiPrefix}/api/auth/refresh`, {
-        method: "POST",
-        credentials: "include",
-      });
+      let sawAuthRejection = false;
+      for (const refreshUrl of getAuthRefreshUrls()) {
+        const response = await fetchWithTimeout(refreshUrl, {
+          method: "POST",
+          credentials: "include",
+        });
 
-      if (response.status === 200) {
-        const json = await response.json();
-        const { jwt, expiresIn } = json;
-        __expiresAt = Date.now() + expiresIn * 1000;
-        console.log("Refresh succeeded");
-        __jwt = jwt;
-        invalidateUserMe();
-        return;
+        if (response.status === 200) {
+          const json = await response.json();
+          const { jwt, expiresIn } = json;
+          __expiresAt = Date.now() + expiresIn * 1000;
+          console.log("Refresh succeeded", refreshUrl);
+          __jwt = jwt;
+          invalidateUserMe();
+          return;
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          sawAuthRejection = true;
+          continue;
+        }
+
+        const retryable = response.status >= 500;
+        console.error("Refresh failed", response.status, refreshUrl);
+        if (!retryable || attempt === maxAttempts) {
+          // Keep current auth state on non-auth failures.
+          return;
+        }
       }
 
-      if (response.status === 401 || response.status === 403) {
-        console.error("Refresh rejected", response.status);
-        logOut();
-        return;
-      }
-
-      const retryable = response.status >= 500;
-      console.error("Refresh failed", response.status);
-      if (!retryable || attempt === maxAttempts) {
-        // Keep current auth state on transient backend failures.
+      if (sawAuthRejection) {
+        // No valid refresh cookie on either host; clear local auth state
+        // without causing extra logout network requests.
+        clearAuthState();
         return;
       }
     } catch (e) {

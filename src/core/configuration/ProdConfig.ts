@@ -8,7 +8,10 @@ export const prodConfig = new (class extends DefaultServerConfig {
     if (Number.isFinite(parsed) && parsed > 0) {
       return Math.min(parsed, 20);
     }
-    return 20;
+
+    // Conservative default for platforms like Render where memory is often
+    // the limiting factor and WEB_CONCURRENCY may be unset.
+    return 2;
   }
   env(): GameEnv {
     return GameEnv.Prod;

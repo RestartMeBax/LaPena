@@ -3,6 +3,10 @@ import { DefaultServerConfig } from "./DefaultConfig";
 
 export const prodConfig = new (class extends DefaultServerConfig {
   numWorkers(): number {
+    const parsed = Number.parseInt(process.env.WEB_CONCURRENCY ?? "", 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.min(parsed, 20);
+    }
     return 20;
   }
   env(): GameEnv {

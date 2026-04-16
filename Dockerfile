@@ -53,8 +53,9 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN rm -f /etc/nginx/sites-enabled/default
 
-# Copy production node_modules from prod-deps stage (cached separately from build)
-COPY --from=prod-deps /usr/src/app/node_modules ./node_modules
+# Copy node_modules from build stage.
+# This avoids prod-deps prepare/husky failures while preserving native module installs.
+COPY --from=build /usr/src/app/node_modules ./node_modules
 COPY package*.json ./
 
 # Copy built artifacts from build stage

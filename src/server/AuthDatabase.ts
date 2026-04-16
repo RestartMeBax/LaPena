@@ -82,8 +82,19 @@ export class AuthDatabase {
   private readonly db: Database.Database;
 
   constructor() {
-    const dataDir = path.join(process.cwd(), "data");
-    fs.mkdirSync(dataDir, { recursive: true });
+    const preferredDataDir = path.join(process.cwd(), "data");
+    let dataDir = preferredDataDir;
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+    } catch (error) {
+      const fallbackDataDir = path.join("/tmp", "openfront-data");
+      console.warn(
+        `AuthDatabase: cannot use ${preferredDataDir}, falling back to ${fallbackDataDir}`,
+        error,
+      );
+      dataDir = fallbackDataDir;
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
     const dbPath = path.join(dataDir, "app.db");
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");

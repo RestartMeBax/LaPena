@@ -69,46 +69,55 @@ export class LeaderboardPlayerList extends LitElement {
     }
 
     try {
-      const result =
-        this.mode === "mostWins"
-          ? await fetchMostWinLeaderboard(this.currentPage)
-          : await fetchPlayerLeaderboard(this.currentPage);
+      let nextPlayers: PlayerLeaderboardEntry[] = [];
+      if (this.mode === "mostWins") {
+        const result = await fetchMostWinLeaderboard(this.currentPage);
+        if (result === false) {
+          throw new Error("Failed to load player leaderboard");
+        }
 
-      if (result === false) {
-        throw new Error("Failed to load player leaderboard");
+        if (result === "reached_limit") {
+          this.playerHasMore = false;
+          this.hasLoadedPlayers = true;
+          return;
+        }
+
+        nextPlayers = result.players.map((entry) => ({
+          rank: entry.rank,
+          playerId: entry.playerId,
+          username: entry.username,
+          clanTag: entry.clanTag ?? undefined,
+          flag: entry.flag,
+          elo: 0,
+          games: entry.wins,
+          wins: entry.wins,
+          losses: 0,
+          winRate: entry.wins > 0 ? 1 : 0,
+        }));
+      } else {
+        const result = await fetchPlayerLeaderboard(this.currentPage);
+        if (result === false) {
+          throw new Error("Failed to load player leaderboard");
+        }
+
+        if (result === "reached_limit") {
+          this.playerHasMore = false;
+          this.hasLoadedPlayers = true;
+          return;
+        }
+
+        nextPlayers = result[RankedType.OneVOne].map((entry) => ({
+          rank: entry.rank,
+          playerId: entry.public_id,
+          username: entry.username,
+          clanTag: entry.clanTag ?? undefined,
+          elo: entry.elo,
+          games: entry.total,
+          wins: entry.wins,
+          losses: entry.losses,
+          winRate: entry.total > 0 ? entry.wins / entry.total : 0,
+        }));
       }
-
-      if (result === "reached_limit") {
-        this.playerHasMore = false;
-        this.hasLoadedPlayers = true;
-        return;
-      }
-
-      const nextPlayers: PlayerLeaderboardEntry[] =
-        this.mode === "mostWins"
-          ? result.players.map((entry) => ({
-              rank: entry.rank,
-              playerId: entry.playerId,
-              username: entry.username,
-              clanTag: entry.clanTag ?? undefined,
-              flag: entry.flag,
-              elo: 0,
-              games: entry.wins,
-              wins: entry.wins,
-              losses: 0,
-              winRate: entry.wins > 0 ? 1 : 0,
-            }))
-          : result[RankedType.OneVOne].map((entry) => ({
-              rank: entry.rank,
-              playerId: entry.public_id,
-              username: entry.username,
-              clanTag: entry.clanTag ?? undefined,
-              elo: entry.elo,
-              games: entry.total,
-              wins: entry.wins,
-              losses: entry.losses,
-              winRate: entry.total > 0 ? entry.wins / entry.total : 0,
-            }));
 
       const receivedCount = nextPlayers.length;
       if (reset) {

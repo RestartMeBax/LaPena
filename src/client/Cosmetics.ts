@@ -88,7 +88,7 @@ export async function purchaseCosmetic(
 
   // Auto-equip the purchased cosmetic so it's immediately active when joining.
   const settings = new UserSettings();
-  if (resolved.type === "pattern" || resolved.type === "skin") {
+  if (resolved.type === "pattern") {
     const patternKey = colorPaletteName
       ? `pattern:${c.name}:${colorPaletteName}`
       : `pattern:${c.name}`;
@@ -394,17 +394,18 @@ export async function getPlayerCosmeticsRefs(): Promise<PlayerCosmeticRefs> {
     userSettings.getSelectedPatternName(cosmetics);
 
   if (pattern) {
+    const selectedPattern = pattern;
     const userMe = await getUserMe();
     if (userMe) {
       const flareName =
-        pattern.colorPalette?.name === undefined
-          ? `pattern:${pattern.name}`
-          : `pattern:${pattern.name}:${pattern.colorPalette.name}`;
+        selectedPattern.colorPalette?.name === undefined
+          ? `pattern:${selectedPattern.name}`
+          : `pattern:${selectedPattern.name}:${selectedPattern.colorPalette.name}`;
       const flares = userMe.player.flares ?? [];
       const hasWildcard = flares.includes("pattern:*");
-      const hasBase = flares.includes(`pattern:${pattern.name}`);
+      const hasBase = flares.includes(`pattern:${selectedPattern.name}`);
       const hasAnyPalette = flares.some((f) =>
-        f.startsWith(`pattern:${pattern.name}:`),
+        f.startsWith(`pattern:${selectedPattern.name}:`),
       );
       if (!hasWildcard && !flares.includes(flareName) && !hasBase && !hasAnyPalette) {
         pattern = null;

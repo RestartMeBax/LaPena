@@ -95,8 +95,7 @@ export async function getUserMe(): Promise<UserMeResponse | false> {
       if (!userAuthResult) return false;
       const { jwt } = userAuthResult;
 
-      const isLocalHost = getAudience() === "localhost";
-      const endpoint = isLocalHost ? "/api/auth/me" : getApiBase() + "/users/@me";
+      const endpoint = "/api/auth/me";
 
       const response = await fetchWithTimeout(endpoint, {
         headers: {
@@ -109,39 +108,6 @@ export async function getUserMe(): Promise<UserMeResponse | false> {
       }
       if (response.status !== 200) return false;
       const body = await response.json();
-
-      if (isLocalHost && body && typeof body === "object" && !("player" in body)) {
-        const localBody = body as Record<string, unknown>;
-        const nestedUser =
-          localBody.user && typeof localBody.user === "object"
-            ? (localBody.user as Record<string, unknown>)
-            : localBody;
-        const userMeResponse = {
-          user: {
-            email:
-              typeof nestedUser.email === "string"
-                ? nestedUser.email
-                : undefined,
-          },
-          player: {
-            publicId:
-              typeof nestedUser.sub === "string" ? nestedUser.sub : "",
-            roles: Array.isArray(nestedUser.roles)
-              ? nestedUser.roles.map(String)
-              : [],
-            flares: [],
-            achievements: { singleplayerMap: [] },
-          },
-        } as UserMeResponse;
-
-        const parsed = UserMeResponseSchema.safeParse(userMeResponse);
-        if (!parsed.success) {
-          const error = z.prettifyError(parsed.error);
-          console.error("Invalid local auth response", error);
-          return false;
-        }
-        return parsed.data;
-      }
 
       const result = UserMeResponseSchema.safeParse(body);
       if (!result.success) {

@@ -7,7 +7,7 @@ import {
 } from "../core/ApiSchemas";
 import { assetUrl } from "../core/AssetUrls";
 import { getRuntimeClientServerConfig } from "../core/configuration/ConfigLoader";
-import { fetchPlayerById, getApiBase, getAudience, getUserMe } from "./Api";
+import { fetchPlayerById, getUserMe } from "./Api";
 import { discordLogin, logOut, setAuthJwt } from "./Auth";
 import "./components/baseComponents/stats/DiscordUserHeader";
 import "./components/baseComponents/stats/GameList";
@@ -375,29 +375,17 @@ export class AccountModal extends BaseModal {
     if (this.authMode === "register" && !displayName) { this.authError = "Please enter a display name."; return; }
 
     const endpointPath = this.authMode === "login" ? "/api/auth/login" : "/api/auth/register";
-    const apiEndpoint = `${getApiBase()}${endpointPath}`;
-    const useApiHostFirst = getAudience() !== "localhost";
     const body: Record<string, string> = { email, password };
     if (this.authMode === "register") body.displayName = displayName;
 
     this.authLoading = true;
     try {
-      let res = await fetch(useApiHostFirst ? apiEndpoint : endpointPath, {
+      const res = await fetch(endpointPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(body),
       });
-
-      // Retry alternate host when deployment topology differs from expected routing.
-      if (res.status === 404 || res.status === 405) {
-        res = await fetch(useApiHostFirst ? endpointPath : apiEndpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(body),
-        });
-      }
 
       const raw = await res.text();
       const data = (raw ? JSON.parse(raw) : {}) as {

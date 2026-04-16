@@ -33,13 +33,11 @@ function loadAuthStateFromStorage(): void {
 }
 
 function getAuthApiPrefix(): string {
-  return getAudience() === "localhost" ? "" : getApiBase();
+  return "";
 }
 
 function getAuthRefreshUrls(): string[] {
-  const apiHostRefresh = `${getAuthApiPrefix()}/api/auth/refresh`;
-  const sameOriginRefresh = "/api/auth/refresh";
-  return Array.from(new Set([apiHostRefresh, sameOriginRefresh]));
+  return ["/api/auth/refresh"];
 }
 
 export function setAuthJwt(jwt: string, expiresInSeconds: number = 3600): void {
@@ -132,8 +130,7 @@ export async function logOut(allSessions: boolean = false): Promise<boolean> {
     console.error("Logout failed", e);
     return false;
   } finally {
-    __jwt = null;
-    invalidateUserMe();
+    clearAuthState();
     localStorage.removeItem(PERSISTENT_ID_KEY);
     new UserSettings().clearFlag();
     new UserSettings().setSelectedPatternName(undefined);

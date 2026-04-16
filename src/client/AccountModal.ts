@@ -7,7 +7,7 @@ import {
 } from "../core/ApiSchemas";
 import { assetUrl } from "../core/AssetUrls";
 import { getRuntimeClientServerConfig } from "../core/configuration/ConfigLoader";
-import { fetchPlayerById, getApiBase, getUserMe } from "./Api";
+import { fetchPlayerById, getApiBase, getAudience, getUserMe } from "./Api";
 import { discordLogin, logOut, setAuthJwt } from "./Auth";
 import "./components/baseComponents/stats/DiscordUserHeader";
 import "./components/baseComponents/stats/GameList";
@@ -375,23 +375,23 @@ export class AccountModal extends BaseModal {
     if (this.authMode === "register" && !displayName) { this.authError = "Please enter a display name."; return; }
 
     const endpointPath = this.authMode === "login" ? "/api/auth/login" : "/api/auth/register";
-    const fallbackEndpoint = `${getApiBase()}${endpointPath}`;
+    const apiEndpoint = `${getApiBase()}${endpointPath}`;
+    const useApiHostFirst = getAudience() !== "localhost";
     const body: Record<string, string> = { email, password };
     if (this.authMode === "register") body.displayName = displayName;
 
     this.authLoading = true;
     try {
-      let res = await fetch(endpointPath, {
+      let res = await fetch(useApiHostFirst ? apiEndpoint : endpointPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(body),
       });
 
-      // If same-origin route is unavailable in split frontend/API deployments,
-      // retry against the configured API host.
+      // Retry alternate host when deployment topology differs from expected routing.
       if (res.status === 404 || res.status === 405) {
-        res = await fetch(fallbackEndpoint, {
+        res = await fetch(useApiHostFirst ? endpointPath : apiEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",

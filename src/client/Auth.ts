@@ -14,6 +14,10 @@ let __jwt: string | null = null;
 let __refreshPromise: Promise<void> | null = null;
 let __expiresAt: number = 0;
 
+function getAuthApiPrefix(): string {
+  return getAudience() === "localhost" ? "" : getApiBase();
+}
+
 export function setAuthJwt(jwt: string, expiresInSeconds: number = 3600): void {
   __jwt = jwt;
   __expiresAt = Date.now() + Math.max(1, expiresInSeconds) * 1000;
@@ -44,8 +48,9 @@ export function discordLogin() {
 }
 
 export async function tempTokenLogin(token: string): Promise<string | null> {
+  const authApiPrefix = getAuthApiPrefix();
   const response = await fetch(
-    `/api/auth/login/token?login-token=${token}`,
+    `${authApiPrefix}/api/auth/login/token?login-token=${token}`,
     {
       credentials: "include",
     },
@@ -68,8 +73,9 @@ export async function getAuthHeader(): Promise<string> {
 }
 
 export async function logOut(allSessions: boolean = false): Promise<boolean> {
+  const authApiPrefix = getAuthApiPrefix();
   try {
-    const response = await fetch("/api/auth/logout", {
+    const response = await fetch(`${authApiPrefix}/api/auth/logout`, {
       method: "POST",
       credentials: "include",
     });
@@ -215,7 +221,8 @@ async function doRefreshJwt(): Promise<void> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       console.log(`Refreshing jwt (attempt ${attempt}/${maxAttempts})`);
-      const response = await fetchWithTimeout("/api/auth/refresh", {
+      const authApiPrefix = getAuthApiPrefix();
+      const response = await fetchWithTimeout(`${authApiPrefix}/api/auth/refresh`, {
         method: "POST",
         credentials: "include",
       });

@@ -177,7 +177,8 @@ export async function startMaster() {
     );
   });
 
-  const parsedPort = Number.parseInt(process.env.PORT ?? "", 10);
+  const normalizedPort = (process.env.PORT ?? "").replace(/"/g, "").trim();
+  const parsedPort = Number.parseInt(normalizedPort, 10);
   const PORT = config.env() === GameEnv.Dev ? (Number.isFinite(parsedPort) ? parsedPort : 8787) : 3000;
   server.listen(PORT, () => {
     log.info(`Master HTTP server listening on port ${PORT}`);

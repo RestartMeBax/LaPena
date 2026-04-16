@@ -1028,7 +1028,11 @@ async function getTurnstileToken(): Promise<{
   }
 
   if (typeof window.turnstile === "undefined") {
-    throw new Error("Failed to load Turnstile script");
+    console.warn("Turnstile script unavailable, continuing without token");
+    return {
+      token: "",
+      createdAt: 0,
+    };
   }
 
   const config = await getRuntimeClientServerConfig();
@@ -1039,7 +1043,7 @@ async function getTurnstileToken(): Promise<{
     theme: "light",
   });
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     window.turnstile.execute(widgetId, {
       callback: (token: string) => {
         window.turnstile.remove(widgetId);
@@ -1048,9 +1052,8 @@ async function getTurnstileToken(): Promise<{
       },
       "error-callback": (errorCode: string) => {
         window.turnstile.remove(widgetId);
-        console.error(`Turnstile error: ${errorCode}`);
-        alert(`Turnstile error: ${errorCode}. Please refresh and try again.`);
-        reject(new Error(`Turnstile failed: ${errorCode}`));
+        console.warn(`Turnstile error: ${errorCode}, continuing without token`);
+        resolve({ token: "", createdAt: 0 });
       },
     });
   });

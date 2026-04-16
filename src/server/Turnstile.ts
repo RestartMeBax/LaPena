@@ -8,7 +8,7 @@ export async function verifyTurnstileToken(
   | { status: "error"; reason: string }
 > {
   if (!turnstileToken) {
-    return { status: "rejected", reason: "No turnstile token provided" };
+    return { status: "error", reason: "No turnstile token provided" };
   }
 
   try {

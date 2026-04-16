@@ -46,9 +46,9 @@ export class MobileNavBar extends LitElement {
   private async _checkAdminStatus() {
     const userMe = await getUserMe();
     const wasAdmin = this._isAdmin;
-    const email = userMe && userMe.user.email ? userMe.user.email : "NO_EMAIL";
-    console.log("[MobileNavBar] Admin check - email:", email, "userMe:", userMe);
-    this._isAdmin = !!(userMe && userMe.user.email === "ludovickjeux@gmail.com");
+    const email = (userMe && userMe.user.email ? userMe.user.email : "").toLowerCase();
+    const roles = userMe && userMe.player?.roles ? userMe.player.roles : [];
+    this._isAdmin = roles.includes("admin") || email === "ludovickjeux@gmail.com";
     console.log("[MobileNavBar] Admin status:", this._isAdmin, "was:", wasAdmin);
     if (this._isAdmin !== wasAdmin) {
       console.log("[MobileNavBar] Admin status changed, requesting update");

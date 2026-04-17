@@ -2,6 +2,9 @@ import { Request, Response, Router } from "express";
 import crypto from "crypto";
 import { AuthDatabase } from "./AuthDatabase";
 import { verifyAuthToken } from "./AuthJwt";
+import { logger } from "./Logger";
+
+const log = logger.child({ comp: "admin" });
 
 const OWNER_ADMIN_EMAILS = new Set(
   [
@@ -55,6 +58,8 @@ async function requireAdmin(
   try {
     const payload = await verifyAuthToken(token, req);
     if (!isAdminPayload(payload) && !isAdminFromDb(payload, db)) {
+      const email = typeof payload.email === "string" ? payload.email : "unknown";
+      log.warn(`Admin access denied for ${email} (${req.method} ${req.path})`);
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -114,6 +119,13 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     }
 
     const updated = db.grantAdminByEmail(email);
+    const actor = (req as Request & { adminPayload?: Record<string, unknown> }).adminPayload;
+    const actorEmail = typeof actor?.email === "string" ? actor.email : "unknown";
+    if (updated === null) {
+      log.info(`Admin pre-granted (pending signup) for ${email} by ${actorEmail}`);
+    } else {
+      log.info(`Admin granted to ${email} (id=${updated.id}) by ${actorEmail}`);
+    }
 
     return res.json({
       success: true,
@@ -142,6 +154,13 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     }
 
     const updated = db.revokeAdminByEmail(email);
+    const actor = (req as Request & { adminPayload?: Record<string, unknown> }).adminPayload;
+    const actorEmail = typeof actor?.email === "string" ? actor.email : "unknown";
+    if (updated !== null) {
+      log.info(`Admin revoked for ${email} (id=${updated.id}) by ${actorEmail}`);
+    } else {
+      log.info(`Admin revoke for ${email} (not a user yet / no role) by ${actorEmail}`);
+    }
 
     return res.json({
       success: true,

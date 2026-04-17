@@ -416,6 +416,10 @@ export async function getPlayerCosmeticsRefs(): Promise<PlayerCosmeticRefs> {
 
   if (pattern) {
     const selectedPattern = pattern;
+    const selectedPatternConfig = cosmetics?.patterns?.[selectedPattern.name];
+    const isFreePattern =
+      selectedPatternConfig?.priceSoft === 0 &&
+      selectedPatternConfig.product === null;
     const userMe = await getUserMe();
     if (userMe) {
       const flareName =
@@ -428,7 +432,13 @@ export async function getPlayerCosmeticsRefs(): Promise<PlayerCosmeticRefs> {
       const hasAnyPalette = flares.some((f) =>
         f.startsWith(`pattern:${selectedPattern.name}:`),
       );
-      if (!hasWildcard && !flares.includes(flareName) && !hasBase && !hasAnyPalette) {
+      if (
+        !isFreePattern &&
+        !hasWildcard &&
+        !flares.includes(flareName) &&
+        !hasBase &&
+        !hasAnyPalette
+      ) {
         pattern = null;
       }
     }

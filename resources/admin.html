@@ -22,6 +22,40 @@
         --shadow: 0 22px 60px rgba(74, 59, 38, 0.12);
       }
 
+      :root[data-theme="noir"] {
+        --bg: #14171c;
+        --paper: rgba(29, 34, 41, 0.92);
+        --paper-strong: #1f252d;
+        --ink: #e5edf8;
+        --muted: #9da8bc;
+        --line: rgba(148, 170, 206, 0.2);
+        --line-strong: rgba(168, 191, 230, 0.34);
+        --accent: #4f9f7a;
+        --accent-2: #c89f52;
+        --accent-soft: #24342f;
+        --danger: #d06a6a;
+        --danger-soft: #362126;
+        --ok: #4eb78a;
+        --shadow: 0 24px 64px rgba(0, 0, 0, 0.38);
+      }
+
+      :root[data-theme="lagoon"] {
+        --bg: #e4f1f1;
+        --paper: rgba(244, 252, 251, 0.92);
+        --paper-strong: #f5fcfd;
+        --ink: #15333d;
+        --muted: #4e7180;
+        --line: rgba(36, 107, 129, 0.2);
+        --line-strong: rgba(30, 123, 150, 0.35);
+        --accent: #1f7a8f;
+        --accent-2: #e08f58;
+        --accent-soft: #dff4f7;
+        --danger: #bf5e67;
+        --danger-soft: #ffeef0;
+        --ok: #1e9b7a;
+        --shadow: 0 22px 60px rgba(33, 80, 100, 0.2);
+      }
+
       * {
         box-sizing: border-box;
       }
@@ -36,9 +70,9 @@
         font-family: "Aptos", "Trebuchet MS", "Segoe UI Variable", sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(224, 196, 141, 0.35), transparent 30%),
-          radial-gradient(circle at top right, rgba(78, 125, 95, 0.18), transparent 26%),
-          linear-gradient(180deg, #efe5d4 0%, #f6f0e5 48%, #f1ebdd 100%);
+          radial-gradient(circle at top left, color-mix(in srgb, var(--accent-2) 32%, transparent), transparent 30%),
+          radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 22%, transparent), transparent 26%),
+          linear-gradient(180deg, color-mix(in srgb, var(--bg) 90%, white) 0%, var(--bg) 62%, color-mix(in srgb, var(--bg) 86%, black) 100%);
         padding: 26px;
       }
 
@@ -158,6 +192,21 @@
         border: 1px dashed var(--line-strong);
         border-radius: 18px;
         background: rgba(255, 255, 255, 0.45);
+      }
+
+      .theme-box {
+        min-width: 210px;
+        display: grid;
+        gap: 6px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: color-mix(in srgb, var(--paper-strong) 84%, transparent);
+      }
+
+      .theme-box select {
+        padding: 8px 10px;
+        border-radius: 10px;
       }
 
       .status {
@@ -397,6 +446,18 @@
         flex-wrap: wrap;
       }
 
+      .table-tools {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .table-filter {
+        min-width: 250px;
+        max-width: 360px;
+      }
+
       .inline-upload {
         display: flex;
         gap: 8px;
@@ -473,6 +534,14 @@
           </div>
           <div class="hero-actions">
             <div class="action-row">
+              <div class="theme-box">
+                <label for="themeSelect" class="micro-copy">Theme</label>
+                <select id="themeSelect">
+                  <option value="default">Sand</option>
+                  <option value="noir">Noir</option>
+                  <option value="lagoon">Lagoon</option>
+                </select>
+              </div>
               <button id="refreshAll">Refresh All</button>
               <button id="reauth" class="danger">Re-check Access</button>
             </div>
@@ -706,6 +775,19 @@
         </section>
 
         <section id="tablesSection" class="section-anchor section-card">
+          <section class="card table-panel">
+            <div class="table-header">
+              <div class="section-copy">
+                <span class="eyebrow">Data tools</span>
+                <h3>Quick Filter</h3>
+              </div>
+              <div class="table-tools">
+                <input id="tableFilter" class="table-filter" placeholder="Filter all tables (name, key, id, url...)" />
+                <button id="clearTableFilter" type="button" class="mini-btn">Clear</button>
+              </div>
+            </div>
+          </section>
+
           <div class="panel-grid two">
             <section class="card table-panel">
               <div class="table-header">
@@ -772,6 +854,9 @@
       let knownFlags = [];
       let knownSkins = [];
       let knownShopItems = [];
+      let currentTableFilter = "";
+
+      const THEME_STORAGE_KEY = "admin_theme_v1";
 
       const statusEl = document.getElementById("status");
       const contentEl = document.getElementById("content");
@@ -787,6 +872,46 @@
       function setStatus(text, ok = true) {
         statusEl.textContent = text;
         statusEl.className = "status " + (ok ? "ok" : "bad");
+      }
+
+      function applyTheme(themeName) {
+        const root = document.documentElement;
+        if (!themeName || themeName === "default") {
+          root.removeAttribute("data-theme");
+          return;
+        }
+        root.setAttribute("data-theme", themeName);
+      }
+
+      function initThemeControls() {
+        const select = document.getElementById("themeSelect");
+        const stored = localStorage.getItem(THEME_STORAGE_KEY) || "default";
+        select.value = stored;
+        applyTheme(stored);
+
+        select.addEventListener("change", () => {
+          const value = select.value || "default";
+          localStorage.setItem(THEME_STORAGE_KEY, value);
+          applyTheme(value);
+        });
+      }
+
+      function applyTableFilter(query) {
+        currentTableFilter = String(query || "").trim().toLowerCase();
+        const tableIds = ["flagsTable", "skinsTable", "newsTable", "mapsTable", "shopTable"];
+        for (const id of tableIds) {
+          const table = document.getElementById(id);
+          if (!table) continue;
+          const rows = table.querySelectorAll("tr");
+          rows.forEach((row, idx) => {
+            if (idx === 0) {
+              row.style.display = "";
+              return;
+            }
+            const text = (row.textContent || "").toLowerCase();
+            row.style.display = !currentTableFilter || text.includes(currentTableFilter) ? "" : "none";
+          });
+        }
       }
 
       async function refreshJwt() {
@@ -856,6 +981,7 @@
               .join("")
           : `<tr><td colspan="${columns.length}" class="empty-cell">No records yet.</td></tr>`;
         table.innerHTML = head + body;
+        applyTableFilter(currentTableFilter);
       }
 
       function renderTableWithDelete(elId, columns, rows, endpointBase, entityLabel) {
@@ -874,6 +1000,7 @@
               .join("")
           : `<tr><td colspan="${fullColumns.length}" class="empty-cell">No records yet.</td></tr>`;
         table.innerHTML = head + body;
+        applyTableFilter(currentTableFilter);
       }
 
       function renderFlagSkinTable(elId, items, endpointBase, entityLabel) {
@@ -901,6 +1028,7 @@
               .join("")
           : `<tr><td colspan="${columns.length}" class="empty-cell">No records yet.</td></tr>`;
         table.innerHTML = head + body;
+        applyTableFilter(currentTableFilter);
       }
 
       function setCount(id, value) {
@@ -1500,6 +1628,17 @@
         injectImageIntoMetadata();
       });
 
+      document.getElementById("tableFilter").addEventListener("input", (event) => {
+        const query = event.target && typeof event.target.value === "string" ? event.target.value : "";
+        applyTableFilter(query);
+      });
+
+      document.getElementById("clearTableFilter").addEventListener("click", () => {
+        const input = document.getElementById("tableFilter");
+        input.value = "";
+        applyTableFilter("");
+      });
+
       document.addEventListener("click", async (event) => {
         const target = event.target;
         if (!(target instanceof Element)) return;
@@ -1548,6 +1687,7 @@
       });
 
       (async () => {
+        initThemeControls();
         if (await ensureAdminAccess()) {
           await loadAllLists();
           syncShopTypeVisuals();

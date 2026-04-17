@@ -217,8 +217,6 @@ export class PlayerView {
   private static readonly SKIN_TERRITORY_SPAN_PADDING = 1.2;
   private static readonly SKIN_TILE_THRESHOLD = 96;
   private static readonly SKIN_MAX_REPEAT = 6;
-  private static readonly SKIN_SEAM_WIDTH = 0.06;
-  private static readonly SKIN_SEAM_DARKEN = 0.24;
 
   private _territoryColor: Colord;
   private _borderColor: Colord;
@@ -508,24 +506,6 @@ export class PlayerView {
     };
 
     const c = bilinear(fx, fy);
-
-    if (shouldTileSmallTexture) {
-      const frac = (value: number) => value - Math.floor(value);
-      const seamDist = (f: number) => Math.min(f, 1 - f);
-      const seamX = seamDist(frac(tiledU));
-      const seamY = seamDist(frac(tiledV));
-      const seam = Math.min(seamX, seamY);
-
-      if (seam < PlayerView.SKIN_SEAM_WIDTH) {
-        const t = (PlayerView.SKIN_SEAM_WIDTH - seam) / PlayerView.SKIN_SEAM_WIDTH;
-        const darken = t * PlayerView.SKIN_SEAM_DARKEN;
-        return colord({
-          r: Math.max(0, Math.round(c.r * (1 - darken))),
-          g: Math.max(0, Math.round(c.g * (1 - darken))),
-          b: Math.max(0, Math.round(c.b * (1 - darken))),
-        });
-      }
-    }
 
     return colord({
       r: Math.round(c.r),

@@ -215,14 +215,18 @@
               <h3>Add Flag</h3>
               <div class="field"><label>Name</label><input id="flagName" /></div>
               <div class="field"><label>Description</label><textarea id="flagDescription"></textarea></div>
-              <div class="field"><label>Image URL</label><input id="flagImageUrl" /></div>
+              <div class="field"><label>Image URL</label><input id="flagImageUrl" />
+                <div style="margin-top:6px"><input type="file" accept="image/*" id="flagImageFile" style="display:none" /><button type="button" onclick="uploadImageFor('flagImageUrl','flagImageFile')" style="font-size:12px">Upload Image</button> <span id="flagImageFile_status" style="font-size:12px;color:var(--muted)"></span></div>
+              </div>
               <button id="addFlag">Add Flag</button>
             </div>
             <div class="grid">
               <h3>Add Skin</h3>
               <div class="field"><label>Name</label><input id="skinName" /></div>
               <div class="field"><label>Description</label><textarea id="skinDescription"></textarea></div>
-              <div class="field"><label>Image URL</label><input id="skinImageUrl" /></div>
+              <div class="field"><label>Image URL</label><input id="skinImageUrl" />
+                <div style="margin-top:6px"><input type="file" accept="image/*" id="skinImageFile" style="display:none" /><button type="button" onclick="uploadImageFor('skinImageUrl','skinImageFile')" style="font-size:12px">Upload Image</button> <span id="skinImageFile_status" style="font-size:12px;color:var(--muted)"></span></div>
+              </div>
               <button id="addSkin">Add Skin</button>
             </div>
           </div>
@@ -295,6 +299,7 @@
               <div class="field"><label>Hard Price</label><input id="shopHardPrice" type="number" min="0" /></div>
               <div class="field"><label>Image URL Helper</label><input id="shopImageUrl" placeholder="https://..." />
                 <div id="shopImageNote" style="display:none;color:#60a5fa;font-size:12px;margin-top:4px;">ℹ For skins, this image is used as the in-game appearance.</div>
+                <div style="margin-top:6px"><input type="file" accept="image/*" id="shopImageFile" style="display:none" /><button type="button" onclick="uploadImageFor('shopImageUrl','shopImageFile')" style="font-size:12px">Upload Image</button> <span id="shopImageFile_status" style="font-size:12px;color:var(--muted)"></span></div>
               </div>
               <div id="shopSkinPreviewWrap" class="field" style="display:none">
                 <label>In-Game Territory Preview</label>
@@ -635,6 +640,56 @@
         document.getElementById("shopKey").value = key;
         setStatus(`Generated key: ${key}.`);
         setShopKeyOptions();
+      }
+
+      // ── Image Upload Helper ───────────────────────────────────────────────
+      function uploadImageFor(urlInputId, fileInputId) {
+        const fileInput = document.getElementById(fileInputId);
+        fileInput.onchange = async () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+          const statusEl = document.getElementById(fileInputId + "_status");
+          statusEl.textContent = "Uploading…";
+          statusEl.style.color = "var(--muted)";
+          try {
+            const base64 = await fileToBase64(file);
+            const resp = await fetch("/api/admin/upload-image", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${jwt}`,
+              },
+              body: JSON.stringify({
+                data: base64,
+                contentType: file.type || "image/png",
+                filename: file.name,
+              }),
+            });
+            const json = await resp.json();
+            if (!resp.ok) {
+              statusEl.textContent = json.error || "Upload failed";
+              statusEl.style.color = "var(--bad)";
+              return;
+            }
+            document.getElementById(urlInputId).value = json.url;
+            statusEl.textContent = "✓ Uploaded";
+            statusEl.style.color = "var(--ok)";
+            setStatus("Image uploaded: " + json.url);
+          } catch (e) {
+            statusEl.textContent = "Upload error";
+            statusEl.style.color = "var(--bad)";
+          }
+        };
+        fileInput.click();
+      }
+
+      function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
       }
 
       function injectImageIntoMetadata() {

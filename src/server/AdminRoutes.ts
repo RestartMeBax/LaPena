@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import crypto from "crypto";
 import { AuthDatabase } from "./AuthDatabase";
 import { verifyAuthToken } from "./AuthJwt";
 
@@ -245,5 +246,65 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     return res.json({ success: true });
   });
 
+  // ── Image Upload (admin-only, base64 JSON body) ──────────────────────────
+  router.post("/upload-image", (req, res) => {
+    const { data, contentType, filename } = req.body as {
+      data?: string;
+      contentType?: string;
+      filename?: string;
+    };
+
+    if (!data || typeof data !== "string") {
+      return res.status(400).json({ error: "Missing base64 image data" });
+    }
+
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "image/gif",
+      "image/svg+xml",
+    ];
+    const ct = allowedTypes.includes(contentType ?? "")
+      ? contentType!
+      : "image/png";
+
+    // Strip optional data-URL prefix
+    const raw = data.replace(/^data:[^;]+;base64,/, "");
+    const buf = Buffer.from(raw, "base64");
+
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (buf.length > MAX_SIZE) {
+      return res.status(413).json({ error: "Image too large (max 5 MB)" });
+    }
+
+    const id = crypto.randomUUID();
+    db.saveImage(id, ct, buf);
+
+    const url = `/api/images/${id}`;
+    return res.json({ success: true, id, url });
+  });
+
   app.use("/api/admin", router);
+}
+
+// ── Public image serving (no auth required) ────────────────────────────────
+export function registerImageServeRoutes(app: Router, db: AuthDatabase) {
+  app.get("/api/images/:id", (req, res) => {
+    const id = req.params.id;
+    if (!/^[0-9a-f-]{36}$/.test(id)) {
+      return res.status(400).json({ error: "Invalid image id" });
+    }
+
+    const image = db.getImage(id);
+    if (!image) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    res.setHeader("Content-Type", image.contentType);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    return res.status(200).send(image.data);
+  });
 }

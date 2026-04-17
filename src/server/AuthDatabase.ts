@@ -199,6 +199,13 @@ export class AuthDatabase {
         flag        TEXT,
         updated_at  INTEGER NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS uploaded_images (
+        id           TEXT    PRIMARY KEY,
+        content_type TEXT    NOT NULL,
+        data         BLOB    NOT NULL,
+        created_at   INTEGER NOT NULL
+      );
     `);
 
     try {
@@ -709,5 +716,30 @@ export class AuthDatabase {
         flag: row.flag ?? undefined,
       wins: row.wins,
     }));
+  }
+
+  // ── Uploaded Images ─────────────────────────────────────────────────────────
+
+  public saveImage(
+    id: string,
+    contentType: string,
+    data: Buffer,
+  ): void {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO uploaded_images (id, content_type, data, created_at)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(id, contentType, data, nowSeconds());
+  }
+
+  public getImage(
+    id: string,
+  ): { contentType: string; data: Buffer } | null {
+    const row = this.db
+      .prepare("SELECT content_type, data FROM uploaded_images WHERE id = ?")
+      .get(id) as { content_type: string; data: Buffer } | undefined;
+    if (!row) return null;
+    return { contentType: row.content_type, data: row.data };
   }
 }

@@ -24,7 +24,7 @@ import { GameManager } from "./GameManager";
 import { registerGamePreviewRoute } from "./GamePreviewRoute";
 import { getUserMe, verifyClientToken } from "./jwt";
 import { registerAuthRoutes } from "./AuthRoutes";
-import { registerAdminRoutes } from "./AdminRoutes";
+import { registerAdminRoutes, registerImageServeRoutes } from "./AdminRoutes";
 import { AuthDatabase } from "./AuthDatabase";
 import { registerLiveContentRoutes, mergeAdminCosmetics } from "./LiveContentRoutes";
 import { registerImageProxyRoutes } from "./ImageProxyRoutes";
@@ -199,6 +199,7 @@ export async function startWorker() {
   registerLiveContentRoutes(app, authDb);
   registerImageProxyRoutes(app);
   registerAdminRoutes(app, authDb);
+  registerImageServeRoutes(app, authDb);
   registerShopRoutes(app, authDb);
   app.use(
     "/maps",

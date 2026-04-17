@@ -11,7 +11,7 @@ import { logger } from "./Logger";
 import { MapPlaylist } from "./MapPlaylist";
 import { MasterLobbyService } from "./MasterLobbyService";
 import { AuthDatabase } from "./AuthDatabase";
-import { registerAdminRoutes } from "./AdminRoutes";
+import { registerAdminRoutes, registerImageServeRoutes } from "./AdminRoutes";
 import { registerAuthRoutes } from "./AuthRoutes";
 import { registerLiveContentRoutes } from "./LiveContentRoutes";
 import { registerImageProxyRoutes } from "./ImageProxyRoutes";
@@ -134,6 +134,7 @@ registerAuthRoutes(app, authDb);
 registerLiveContentRoutes(app, authDb);
 registerImageProxyRoutes(app);
 registerAdminRoutes(app, authDb);
+registerImageServeRoutes(app, authDb);
 registerShopRoutes(app, authDb);
 
 app.use("/api", (_req, res, next) => {

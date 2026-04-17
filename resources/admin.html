@@ -675,8 +675,9 @@
               </div>
               <div class="form-actions">
                 <button id="grantAdminBtn" type="button">Grant Admin</button>
+                <button id="revokeAdminBtn" type="button" class="danger">Revoke Admin</button>
               </div>
-              <p class="field-note">User must already have an account before you can grant admin.</p>
+              <p class="field-note">Grant works before signup too. Revoke removes both immediate and future admin access for this email.</p>
             </article>
 
             <section class="card table-panel">
@@ -1979,7 +1980,38 @@
           return;
         }
 
-        setStatus(`Admin granted to ${response.body.user?.email || email}.`);
+        if (response.body.pendingSignup) {
+          setStatus(
+            `Admin email saved for ${response.body.user?.email || email}. They will get admin automatically after signup.`,
+          );
+        } else {
+          setStatus(`Admin granted to ${response.body.user?.email || email}.`);
+        }
+        emailInput.value = "";
+        await loadAllLists();
+      });
+
+      document.getElementById("revokeAdminBtn").addEventListener("click", async () => {
+        const emailInput = document.getElementById("adminGrantEmail");
+        const email = (emailInput.value || "").trim();
+        if (!email) {
+          setStatus("User email is required.", false);
+          emailInput.focus();
+          return;
+        }
+
+        const response = await requestJson("/api/admin/admins/revoke", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!response.ok) {
+          setStatus(response.body.error || "Could not revoke admin.", false);
+          return;
+        }
+
+        setStatus(`Admin revoked for ${response.body.user?.email || email}.`);
         emailInput.value = "";
         await loadAllLists();
       });

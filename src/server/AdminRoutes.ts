@@ -37,8 +37,7 @@ function isAdminFromDb(
 ): boolean {
   const email = typeof payload.email === "string" ? payload.email : "";
   if (!email) return false;
-  const user = db.findUserByEmail(email);
-  return Boolean(user?.roles?.includes("admin"));
+  return db.isAdminEmail(email);
 }
 
 async function requireAdmin(
@@ -114,20 +113,44 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
       return res.status(400).json({ error: "Missing user email" });
     }
 
-    const updated = db.grantRoleByEmail(email, "admin");
-    if (!updated) {
-      return res.status(404).json({
-        error: "User not found. Ask them to sign up first, then grant admin.",
-      });
-    }
+    const updated = db.grantAdminByEmail(email);
 
     return res.json({
       success: true,
+      pendingSignup: updated === null,
       user: {
-        id: updated.id,
-        email: updated.email,
-        displayName: updated.displayName,
-        roles: updated.roles,
+        id: updated?.id,
+        email: updated?.email ?? email,
+        displayName: updated?.displayName,
+        roles: updated?.roles ?? ["admin"],
+      },
+    });
+  });
+
+  router.post("/admins/revoke", (req, res) => {
+    const emailRaw =
+      typeof req.body?.email === "string" ? req.body.email.trim() : "";
+    const email = emailRaw.toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: "Missing user email" });
+    }
+
+    if (OWNER_ADMIN_EMAILS.has(email)) {
+      return res.status(400).json({
+        error: "Cannot revoke owner admin account.",
+      });
+    }
+
+    const updated = db.revokeAdminByEmail(email);
+
+    return res.json({
+      success: true,
+      removedFromExistingUser: updated !== null,
+      user: {
+        id: updated?.id,
+        email: updated?.email ?? email,
+        displayName: updated?.displayName,
+        roles: updated?.roles ?? [],
       },
     });
   });

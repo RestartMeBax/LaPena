@@ -177,6 +177,11 @@ export class AuthDatabase {
         UNIQUE(item_type, item_key)
       );
 
+      CREATE TABLE IF NOT EXISTS admin_emails (
+        email      TEXT    PRIMARY KEY,
+        created_at INTEGER NOT NULL
+      );
+
       CREATE TABLE IF NOT EXISTS user_flares (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         user_sub   TEXT    NOT NULL,
@@ -222,8 +227,29 @@ export class AuthDatabase {
   private bootstrapOwnerAdmins() {
     for (const email of OWNER_ADMIN_EMAILS) {
       if (!email) continue;
+      this.markAdminEmail(email);
       this.ensureRoleForEmail(email, "admin");
     }
+  }
+
+  public markAdminEmail(email: string): void {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) return;
+    this.db
+      .prepare(
+        "INSERT OR IGNORE INTO admin_emails (email, created_at) VALUES (?, ?)",
+      )
+      .run(normalizedEmail, nowSeconds());
+  }
+
+  public isAdminEmail(email: string): boolean {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) return false;
+    if (OWNER_ADMIN_EMAILS.has(normalizedEmail)) return true;
+    const row = this.db
+      .prepare("SELECT 1 FROM admin_emails WHERE email = ?")
+      .get(normalizedEmail);
+    return row !== undefined;
   }
 
   private ensureRoleForEmail(email: string, role: string) {
@@ -243,7 +269,7 @@ export class AuthDatabase {
 
   private defaultRolesForEmail(email: string): string[] {
     const normalizedEmail = normalizeEmail(email);
-    if (OWNER_ADMIN_EMAILS.has(normalizedEmail)) {
+    if (this.isAdminEmail(normalizedEmail)) {
       return ["admin"];
     }
     return [];
@@ -340,6 +366,41 @@ export class AuthDatabase {
     }
 
     return this.getUserById(row.id);
+  }
+
+  public grantAdminByEmail(email: string): UserRecord | null {
+    const normalizedEmail = normalizeEmail(email);
+    this.markAdminEmail(normalizedEmail);
+    return this.grantRoleByEmail(normalizedEmail, "admin");
+  }
+
+  public revokeRoleByEmail(email: string, role: string): UserRecord | null {
+    const normalizedEmail = normalizeEmail(email);
+    const row = this.db
+      .prepare("SELECT id, roles FROM users WHERE email = ?")
+      .get(normalizedEmail) as { id: number; roles: string | null } | undefined;
+    if (!row) return null;
+
+    const roles = parseRoles(row.roles).filter((r) => r !== role);
+    this.db
+      .prepare("UPDATE users SET roles = ? WHERE id = ?")
+      .run(JSON.stringify(roles), row.id);
+
+    return this.getUserById(row.id);
+  }
+
+  public unmarkAdminEmail(email: string): void {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || OWNER_ADMIN_EMAILS.has(normalizedEmail)) return;
+    this.db
+      .prepare("DELETE FROM admin_emails WHERE email = ?")
+      .run(normalizedEmail);
+  }
+
+  public revokeAdminByEmail(email: string): UserRecord | null {
+    const normalizedEmail = normalizeEmail(email);
+    this.unmarkAdminEmail(normalizedEmail);
+    return this.revokeRoleByEmail(normalizedEmail, "admin");
   }
 
   public getUsersByRole(role: string): UserRecord[] {

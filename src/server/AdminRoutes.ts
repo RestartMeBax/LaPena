@@ -83,6 +83,42 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
 
   router.use(requireAdmin);
 
+  router.get("/admins", (_req, res) => {
+    const admins = db.getUsersByRole("admin").map((user) => ({
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      roles: user.roles,
+      createdAt: user.createdAt,
+    }));
+    return res.json({ admins });
+  });
+
+  router.post("/admins/grant", (req, res) => {
+    const email =
+      typeof req.body?.email === "string" ? req.body.email.trim() : "";
+    if (!email) {
+      return res.status(400).json({ error: "Missing user email" });
+    }
+
+    const updated = db.grantRoleByEmail(email, "admin");
+    if (!updated) {
+      return res.status(404).json({
+        error: "User not found. Ask them to sign up first, then grant admin.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      user: {
+        id: updated.id,
+        email: updated.email,
+        displayName: updated.displayName,
+        roles: updated.roles,
+      },
+    });
+  });
+
   router.get("/flags", (_req, res) => {
     return res.json({ flags: db.getFlags() });
   });

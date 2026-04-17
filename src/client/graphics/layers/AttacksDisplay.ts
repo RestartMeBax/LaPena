@@ -35,6 +35,7 @@ export class AttacksDisplay extends LitElement implements Layer {
   private active: boolean = false;
   private incomingBoatIDs: Set<number> = new Set();
   private spriteDataURLCache: Map<string, string> = new Map();
+  private attackWarningRequestToken = 0;
   @state() private _isVisible: boolean = false;
   @state() private incomingAttacks: AttackUpdate[] = [];
   @state() private outgoingAttacks: AttackUpdate[] = [];
@@ -181,22 +182,31 @@ export class AttacksDisplay extends LitElement implements Layer {
     }
   }
 
-  private async attackWarningOnClick(attack: AttackUpdate) {
+  private attackWarningOnClick(attack: AttackUpdate) {
     const playerView = this.game.playerBySmallID(attack.attackerID);
-    if (playerView !== undefined) {
-      if (playerView instanceof PlayerView) {
-        const attacks = await playerView.attackClusteredPositions(attack.id);
-        const pos = attacks[0]?.positions[0];
+    if (playerView === undefined || !(playerView instanceof PlayerView)) {
+      this.emitGoToPlayerEvent(attack.attackerID);
+      return;
+    }
 
-        if (!pos) {
-          this.emitGoToPlayerEvent(attack.attackerID);
-        } else {
+    // Jump immediately to avoid waiting on worker-heavy frontline clustering.
+    this.emitGoToPlayerEvent(attack.attackerID);
+
+    const requestToken = ++this.attackWarningRequestToken;
+    void playerView
+      .attackClusteredPositions(attack.id)
+      .then((attacks) => {
+        if (requestToken !== this.attackWarningRequestToken) {
+          return;
+        }
+        const pos = attacks[0]?.positions[0];
+        if (pos) {
           this.eventBus.emit(new GoToPositionEvent(pos.x, pos.y));
         }
-      }
-    } else {
-      this.emitGoToPlayerEvent(attack.attackerID);
-    }
+      })
+      .catch(() => {
+        // Keep the immediate fallback camera jump; ignore clustering errors.
+      });
   }
 
   private handleRetaliate(attack: AttackUpdate) {

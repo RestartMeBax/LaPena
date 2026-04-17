@@ -324,6 +324,34 @@ export class AuthDatabase {
     return row ? this.rowToUserRecord(row) : null;
   }
 
+  public grantRoleByEmail(email: string, role: string): UserRecord | null {
+    const normalizedEmail = normalizeEmail(email);
+    const row = this.db
+      .prepare("SELECT id, roles FROM users WHERE email = ?")
+      .get(normalizedEmail) as { id: number; roles: string | null } | undefined;
+    if (!row) return null;
+
+    const roles = parseRoles(row.roles);
+    if (!roles.includes(role)) {
+      roles.push(role);
+      this.db
+        .prepare("UPDATE users SET roles = ? WHERE id = ?")
+        .run(JSON.stringify(roles), row.id);
+    }
+
+    return this.getUserById(row.id);
+  }
+
+  public getUsersByRole(role: string): UserRecord[] {
+    const rows = this.db
+      .prepare("SELECT id, sub, email, display_name, profile_pic, roles, created_at FROM users ORDER BY created_at DESC")
+      .all() as Parameters<typeof this.rowToUserRecord>[0][];
+
+    return rows
+      .map((row) => this.rowToUserRecord(row))
+      .filter((user) => user.roles.includes(role));
+  }
+
   public verifyUserPassword(email: string, password: string): UserRecord | null {
     const normalizedEmail = normalizeEmail(email);
     const row = this.db

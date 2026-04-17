@@ -597,6 +597,7 @@
       <section id="content" class="content-grid hidden">
         <nav class="card nav-bar">
           <a class="nav-pill" href="#overviewSection">Overview</a>
+          <a class="nav-pill" href="#accessSection">Access</a>
           <a class="nav-pill" href="#mediaSection">Flags and Skins</a>
           <a class="nav-pill" href="#newsSection">News</a>
           <a class="nav-pill" href="#mapsSection">Maps</a>
@@ -656,6 +657,39 @@
               <button type="button" class="ghost-btn jump-btn" data-target="shopSection" data-focus="shopType">New Shop Item</button>
             </div>
           </section>
+        </section>
+
+        <section id="accessSection" class="section-anchor card section-card">
+          <div class="section-header">
+            <div class="section-copy">
+              <span class="eyebrow">Permissions</span>
+              <h2>Admin Access</h2>
+              <p>Grant admin role to an existing account by email.</p>
+            </div>
+          </div>
+          <div class="panel-grid two">
+            <article class="form-panel">
+              <div class="field">
+                <label>User Email</label>
+                <input id="adminGrantEmail" type="email" placeholder="user@example.com" />
+              </div>
+              <div class="form-actions">
+                <button id="grantAdminBtn" type="button">Grant Admin</button>
+              </div>
+              <p class="field-note">User must already have an account before you can grant admin.</p>
+            </article>
+
+            <section class="card table-panel">
+              <div class="table-header">
+                <div class="section-copy">
+                  <span class="eyebrow">Current admins</span>
+                  <h3>Admin Users</h3>
+                </div>
+                <span id="adminsCount" class="table-count">0</span>
+              </div>
+              <div class="table-wrap"><table id="adminUsersTable"></table></div>
+            </section>
+          </div>
         </section>
 
         <section id="mediaSection" class="section-anchor card section-card">
@@ -925,6 +959,7 @@
       let knownFlags = [];
       let knownSkins = [];
       let knownShopItems = [];
+      let knownAdmins = [];
       let currentTableFilter = "";
 
       const THEME_STORAGE_KEY = "admin_theme_v1";
@@ -976,7 +1011,7 @@
 
       function applyTableFilter(query) {
         currentTableFilter = String(query || "").trim().toLowerCase();
-        const tableIds = ["flagsTable", "skinsTable", "newsTable", "mapsTable", "shopTable"];
+        const tableIds = ["flagsTable", "skinsTable", "newsTable", "mapsTable", "shopTable", "adminUsersTable"];
         for (const id of tableIds) {
           const table = document.getElementById(id);
           if (!table) continue;
@@ -1171,6 +1206,7 @@
         setCount("newsCount", newsCount);
         setCount("mapsCount", knownMaps.length);
         setCount("shopCount", knownShopItems.length);
+        setCount("adminsCount", knownAdmins.length);
       }
 
       function focusSection(sectionId, focusId) {
@@ -1614,12 +1650,13 @@
       }
 
       async function loadAllLists() {
-        const [flags, skins, news, maps, shop] = await Promise.all([
+        const [flags, skins, news, maps, shop, admins] = await Promise.all([
           requestJson("/api/admin/flags"),
           requestJson("/api/admin/skins"),
           requestJson("/api/admin/news"),
           requestJson("/api/admin/maps"),
           requestJson("/api/admin/shop-items"),
+          requestJson("/api/admin/admins"),
         ]);
 
         if (flags.ok) {
@@ -1701,6 +1738,23 @@
           );
         } else {
           knownShopItems = [];
+        }
+
+        if (admins.ok) {
+          knownAdmins = Array.isArray(admins.body.admins) ? admins.body.admins : [];
+          renderTable(
+            "adminUsersTable",
+            ["ID", "Email", "Display Name", "Roles"],
+            knownAdmins.map((a) => [
+              a.id,
+              a.email || "",
+              a.displayName || "",
+              Array.isArray(a.roles) ? a.roles.join(", ") : "",
+            ]),
+          );
+        } else {
+          knownAdmins = [];
+          renderTable("adminUsersTable", ["ID", "Email", "Display Name", "Roles"], []);
         }
 
         setShopKeyOptions();
@@ -1904,6 +1958,31 @@
       document.getElementById("clearNewsForm").addEventListener("click", clearNewsForm);
       document.getElementById("clearMapForm").addEventListener("click", clearMapForm);
       document.getElementById("clearShopForm").addEventListener("click", clearShopForm);
+
+      document.getElementById("grantAdminBtn").addEventListener("click", async () => {
+        const emailInput = document.getElementById("adminGrantEmail");
+        const email = (emailInput.value || "").trim();
+        if (!email) {
+          setStatus("User email is required.", false);
+          emailInput.focus();
+          return;
+        }
+
+        const response = await requestJson("/api/admin/admins/grant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!response.ok) {
+          setStatus(response.body.error || "Could not grant admin.", false);
+          return;
+        }
+
+        setStatus(`Admin granted to ${response.body.user?.email || email}.`);
+        emailInput.value = "";
+        await loadAllLists();
+      });
 
       document.addEventListener("click", async (event) => {
         const target = event.target;

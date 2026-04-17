@@ -8,6 +8,9 @@ export class AttackImpl implements Attack {
   private _borderSize = 0;
   public _retreating = false;
   public _retreated = false;
+  private _borderVersion = 0;
+  private _clusteredPositionsCache: TileRef[] | null = null;
+  private _clusteredPositionsCacheVersion = -1;
 
   constructor(
     private _id: string,
@@ -81,12 +84,16 @@ export class AttackImpl implements Attack {
   clearBorder(): void {
     this._borderSize = 0;
     this._border.clear();
+    this._borderVersion += 1;
+    this._clusteredPositionsCache = null;
   }
 
   addBorderTile(tile: TileRef): void {
     if (!this._border.has(tile)) {
       this._borderSize += 1;
       this._border.add(tile);
+      this._borderVersion += 1;
+      this._clusteredPositionsCache = null;
     }
   }
 
@@ -94,17 +101,32 @@ export class AttackImpl implements Attack {
     if (this._border.has(tile)) {
       this._borderSize -= 1;
       this._border.delete(tile);
+      this._borderVersion += 1;
+      this._clusteredPositionsCache = null;
     }
   }
 
   // Returns the top 2 clustered positions of the attack's border.
   // If the second cluster is too small, only returns the largest one.
   clusteredPositions(): TileRef[] {
+    if (
+      this._clusteredPositionsCache &&
+      this._clusteredPositionsCacheVersion === this._borderVersion
+    ) {
+      return this._clusteredPositionsCache;
+    }
+
+    let result: TileRef[];
     if (this._borderSize === 0) {
       const tile = this.sourceTile();
-      return tile !== null ? [tile] : [];
+      result = tile !== null ? [tile] : [];
+    } else {
+      result = this.clusterBorderTiles(30, 2);
     }
-    return this.clusterBorderTiles(30, 2);
+
+    this._clusteredPositionsCache = result;
+    this._clusteredPositionsCacheVersion = this._borderVersion;
+    return result;
   }
 
   // Partitions the attack's border tiles into disconnected segments using BFS,

@@ -217,6 +217,16 @@ export class PrivilegeCheckerImpl implements PrivilegeChecker {
       flare.startsWith(`pattern:${found.name}:`),
     );
 
+    // Free patterns (priceSoft=0, no product) are universally allowed.
+    if (found.priceSoft === 0 && found.product === null) {
+      return {
+        name: found.name,
+        patternData: found.pattern,
+        colorPalette,
+        imageUrl: found.url,
+      } satisfies PlayerPattern;
+    }
+
     if (
       flares.includes(flareName) ||
       flares.includes(basePatternFlare) ||

@@ -193,6 +193,11 @@ export function cosmeticRelationship(
     return "blocked";
   }
 
+  // Free items (priceSoft=0, no product) are universally owned — no purchase needed.
+  if (opts.priceSoft === 0 && opts.product === null) {
+    return "owned";
+  }
+
   // Purchasable if any purchase method is available
   if (opts.priceSoft !== undefined || opts.priceHard !== undefined) {
     return "purchasable";

@@ -501,6 +501,35 @@ export class PlayerView {
     return isPrimary ? this._territoryColor : this._borderColor;
   }
 
+  private tintBorderColor(baseColor: Colord, target: { r: number; g: number; b: number }) {
+    const baseRgb = baseColor.toRgb();
+    return colord({
+      r: Math.round(
+        baseRgb.r * (1 - BORDER_TINT_RATIO) + target.r * BORDER_TINT_RATIO,
+      ),
+      g: Math.round(
+        baseRgb.g * (1 - BORDER_TINT_RATIO) + target.g * BORDER_TINT_RATIO,
+      ),
+      b: Math.round(
+        baseRgb.b * (1 - BORDER_TINT_RATIO) + target.b * BORDER_TINT_RATIO,
+      ),
+      a: baseRgb.a,
+    });
+  }
+
+  private baseBorderColorForTile(tile?: TileRef): Colord {
+    if (tile === undefined) {
+      return this._borderColor;
+    }
+
+    const sampled = this.sampleSkinColor(this.game.x(tile), this.game.y(tile));
+    if (!sampled) {
+      return this._borderColor;
+    }
+
+    return this.game.config().theme().borderColor(sampled);
+  }
+
   structureColors(): { light: Colord; dark: Colord } {
     return this._structureColors;
   }
@@ -516,19 +545,22 @@ export class PlayerView {
     }
 
     const { hasEmbargo, hasFriendly } = this.borderRelationFlags(tile);
+    const neutralColor = this.baseBorderColorForTile(tile);
+    const friendlyColor = this.tintBorderColor(neutralColor, FRIENDLY_TINT_TARGET);
+    const embargoColor = this.tintBorderColor(neutralColor, EMBARGO_TINT_TARGET);
 
     let baseColor: Colord;
     let defendedColors: { light: Colord; dark: Colord };
 
     if (hasEmbargo) {
-      baseColor = this._borderColorEmbargo;
-      defendedColors = this._borderColorDefendedEmbargo;
+      baseColor = embargoColor;
+      defendedColors = this.game.config().theme().defendedBorderColors(baseColor);
     } else if (hasFriendly) {
-      baseColor = this._borderColorFriendly;
-      defendedColors = this._borderColorDefendedFriendly;
+      baseColor = friendlyColor;
+      defendedColors = this.game.config().theme().defendedBorderColors(baseColor);
     } else {
-      baseColor = this._borderColorNeutral;
-      defendedColors = this._borderColorDefendedNeutral;
+      baseColor = neutralColor;
+      defendedColors = this.game.config().theme().defendedBorderColors(baseColor);
     }
 
     if (!isDefended) {

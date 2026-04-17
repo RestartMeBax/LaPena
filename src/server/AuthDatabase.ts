@@ -403,6 +403,11 @@ export class AuthDatabase {
       .run(name, description, imageUrl ?? null, nowSeconds());
   }
 
+  public updateFlagImage(id: number, imageUrl: string): boolean {
+    const result = this.db.prepare("UPDATE flags SET image_url = ? WHERE id = ?").run(imageUrl, id);
+    return result.changes > 0;
+  }
+
   public deleteFlagById(id: number): boolean {
     const result = this.db.prepare("DELETE FROM flags WHERE id = ?").run(id);
     return result.changes > 0;
@@ -411,6 +416,11 @@ export class AuthDatabase {
   public createSkin(name: string, description: string, imageUrl?: string): void {
     this.db.prepare("INSERT INTO skins (name, description, image_url, created_at) VALUES (?, ?, ?, ?)")
       .run(name, description, imageUrl ?? null, nowSeconds());
+  }
+
+  public updateSkinImage(id: number, imageUrl: string): boolean {
+    const result = this.db.prepare("UPDATE skins SET image_url = ? WHERE id = ?").run(imageUrl, id);
+    return result.changes > 0;
   }
 
   public deleteSkinById(id: number): boolean {

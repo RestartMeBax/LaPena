@@ -460,6 +460,62 @@
         table.innerHTML = head + body;
       }
 
+      function renderFlagSkinTable(elId, items, endpointBase, entityLabel) {
+        const table = document.getElementById(elId);
+        const columns = ["ID", "Name", "Description", "Image", "Actions"];
+        const head = `<tr>${columns.map((c) => `<th>${htmlEsc(c)}</th>`).join("")}</tr>`;
+        const body = items
+          .map((item) => {
+            const imgUrl = item.imageUrl || "";
+            const imgPreview = imgUrl
+              ? `<img src="${htmlEsc(imgUrl)}" style="max-width:60px;max-height:60px;border-radius:4px" onerror="this.style.display='none';this.nextSibling.style.display='inline'" /><span style="display:none;color:var(--bad);font-size:11px">broken</span>`
+              : '<span style="color:var(--muted);font-size:11px">none</span>';
+            const cells = `<td>${item.id}</td><td>${htmlEsc(item.name)}</td><td>${htmlEsc(item.description)}</td><td>${imgPreview}</td>`;
+            const uploadId = `upload_${entityLabel}_${item.id}`;
+            const actions = `<td>
+              <input type="file" accept="image/*" id="${uploadId}" style="display:none" />
+              <button type="button" class="mini-btn" onclick="uploadAndUpdate('${endpointBase}', ${item.id}, '${uploadId}')">Upload Image</button>
+              <button type="button" class="danger mini-btn delete-row-btn" data-delete-path="${endpointBase}/${item.id}" data-delete-label="${entityLabel} #${item.id}">Delete</button>
+            </td>`;
+            return `<tr>${cells}${actions}</tr>`;
+          })
+          .join("");
+        table.innerHTML = head + body;
+      }
+
+      async function uploadAndUpdate(endpointBase, id, fileInputId) {
+        const fileInput = document.getElementById(fileInputId);
+        fileInput.onchange = async () => {
+          const file = fileInput.files[0];
+          if (!file) return;
+          try {
+            setStatus("Uploading image…");
+            const base64 = await fileToBase64(file);
+            const uploadResp = await fetch("/api/admin/upload-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+              body: JSON.stringify({ data: base64, contentType: file.type || "image/png" }),
+            });
+            const uploadJson = await uploadResp.json();
+            if (!uploadResp.ok) { setStatus(uploadJson.error || "Upload failed", false); return; }
+
+            const patchResp = await fetch(`${endpointBase}/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+              body: JSON.stringify({ imageUrl: uploadJson.url }),
+            });
+            const patchJson = await patchResp.json();
+            if (!patchResp.ok) { setStatus(patchJson.error || "Update failed", false); return; }
+
+            setStatus(`Image updated for item #${id}. Refreshing…`);
+            await loadAllLists();
+          } catch (e) {
+            setStatus("Upload error: " + e.message, false);
+          }
+        };
+        fileInput.click();
+      }
+
       function normalizeValue(value) {
         return String(value || "").trim().toLowerCase();
       }
@@ -793,13 +849,9 @@
 
         if (flags.ok) {
           knownFlags = Array.isArray(flags.body.flags) ? flags.body.flags : [];
-          renderTableWithDelete(
+          renderFlagSkinTable(
             "flagsTable",
-            ["ID", "Name", "Description", "Image URL"],
-            flags.body.flags.map((f) => ({
-              id: f.id,
-              values: [f.id, f.name, f.description, f.imageUrl || ""],
-            })),
+            knownFlags,
             "/api/admin/flags",
             "flag",
           );
@@ -809,13 +861,9 @@
 
         if (skins.ok) {
           knownSkins = Array.isArray(skins.body.skins) ? skins.body.skins : [];
-          renderTableWithDelete(
+          renderFlagSkinTable(
             "skinsTable",
-            ["ID", "Name", "Description", "Image URL"],
-            skins.body.skins.map((s) => ({
-              id: s.id,
-              values: [s.id, s.name, s.description, s.imageUrl || ""],
-            })),
+            knownSkins,
             "/api/admin/skins",
             "skin",
           );

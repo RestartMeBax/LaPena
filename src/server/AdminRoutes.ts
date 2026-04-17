@@ -96,6 +96,22 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     return res.json({ success: true });
   });
 
+  router.patch("/flags/:id", (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid flag id" });
+    }
+    const { imageUrl } = req.body;
+    if (!imageUrl || typeof imageUrl !== "string") {
+      return res.status(400).json({ error: "Missing imageUrl" });
+    }
+    const updated = db.updateFlagImage(id, imageUrl);
+    if (!updated) {
+      return res.status(404).json({ error: "Flag not found" });
+    }
+    return res.json({ success: true });
+  });
+
   router.delete("/flags/:id", (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isFinite(id) || id <= 0) {
@@ -119,6 +135,22 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
       return res.status(400).json({ error: "Missing skin name or description" });
     }
     db.createSkin(name, description, imageUrl);
+    return res.json({ success: true });
+  });
+
+  router.patch("/skins/:id", (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid skin id" });
+    }
+    const { imageUrl } = req.body;
+    if (!imageUrl || typeof imageUrl !== "string") {
+      return res.status(400).json({ error: "Missing imageUrl" });
+    }
+    const updated = db.updateSkinImage(id, imageUrl);
+    if (!updated) {
+      return res.status(404).json({ error: "Skin not found" });
+    }
     return res.json({ success: true });
   });
 

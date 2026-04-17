@@ -7,6 +7,7 @@ import { Cosmetics, Flag } from "src/core/CosmeticSchemas";
 import { UserSettings } from "src/core/game/UserSettings";
 import { deleteInventoryCosmetic, getUserMe, invalidateUserMe } from "./Api";
 import {
+  COSMETICS_UPDATED_EVENT,
   fetchCosmetics,
   flagRelationship,
   ResolvedCosmetic,
@@ -34,8 +35,24 @@ export class FlagInputModal extends BaseModal {
   @state() private userMe: UserMeResponse | false = false;
   public returnTo = "";
 
+  private onCosmeticsUpdated = async () => {
+    this.cosmetics = await fetchCosmetics();
+    this.userMe = await getUserMe().then((r) => r || (false as const));
+    this.requestUpdate();
+  };
+
   updated(changedProperties: Map<string | number | symbol, unknown>) {
     super.updated(changedProperties);
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener(COSMETICS_UPDATED_EVENT, this.onCosmeticsUpdated);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener(COSMETICS_UPDATED_EVENT, this.onCosmeticsUpdated);
   }
 
   private async emitFreshUserMe() {

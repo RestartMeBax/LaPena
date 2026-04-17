@@ -930,6 +930,11 @@
       const THEME_STORAGE_KEY = "admin_theme_v1";
       const AUTH_JWT_KEY = "auth_jwt";
       const AUTH_EXPIRES_AT_KEY = "auth_jwt_expires_at";
+      const COSMETICS_SYNC_KEY = "admin_cosmetics_updated_at";
+      const cosmeticsSyncChannel =
+        "BroadcastChannel" in window
+          ? new BroadcastChannel("robuste-cosmetics-sync")
+          : null;
 
       const statusEl = document.getElementById("status");
       const contentEl = document.getElementById("content");
@@ -985,6 +990,16 @@
             row.style.display = !currentTableFilter || text.includes(currentTableFilter) ? "" : "none";
           });
         }
+      }
+
+      function notifyCosmeticsChanged() {
+        const stamp = String(Date.now());
+        try {
+          localStorage.setItem(COSMETICS_SYNC_KEY, stamp);
+        } catch {
+          // Ignore storage errors.
+        }
+        cosmeticsSyncChannel?.postMessage(stamp);
       }
 
       async function refreshJwt() {
@@ -1268,6 +1283,7 @@
 
             setStatus(`Image updated for item #${id}. Refreshing…`);
             await loadAllLists();
+            notifyCosmeticsChanged();
           } catch (e) {
             setStatus("Upload error: " + e.message, false);
           }
@@ -1703,6 +1719,13 @@
         }
         setStatus(successText);
         await loadAllLists();
+        if (
+          endpoint.includes("/flags") ||
+          endpoint.includes("/skins") ||
+          endpoint.includes("/shop-items")
+        ) {
+          notifyCosmeticsChanged();
+        }
         return true;
       }
 
@@ -1717,6 +1740,13 @@
         }
         setStatus(`${label} deleted.`);
         await loadAllLists();
+        if (
+          path.includes("/flags") ||
+          path.includes("/skins") ||
+          path.includes("/shop-items")
+        ) {
+          notifyCosmeticsChanged();
+        }
       }
 
       document.getElementById("refreshAll").addEventListener("click", async () => {

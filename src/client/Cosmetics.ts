@@ -24,11 +24,20 @@ import {
 import { translateText } from "./Utils";
 
 export const TEMP_FLARE_OFFSET = 1 * 60 * 1000; // 1 minute
+export const COSMETICS_UPDATED_EVENT = "cosmetics-updated";
+
+const COSMETICS_SYNC_KEY = "admin_cosmetics_updated_at";
+const cosmeticsSyncChannel =
+  typeof window !== "undefined" && "BroadcastChannel" in window
+    ? new BroadcastChannel("robuste-cosmetics-sync")
+    : null;
 
 let __cosmetics: Promise<Cosmetics | null> | null = null;
 let __cosmeticsHash: string | null = null;
 let __cosmeticsFetchedAt = 0;
 const COSMETICS_CACHE_TTL_MS = 10_000;
+
+let __cosmeticsSyncBound = false;
 
 export type PaymentMethod = "dollar" | "hard" | "soft";
 
@@ -111,7 +120,48 @@ function simpleHash(str: string): string {
   return hash.toString(36);
 }
 
+export function invalidateCosmetics(): void {
+  __cosmetics = null;
+  __cosmeticsHash = null;
+  __cosmeticsFetchedAt = 0;
+}
+
+function emitCosmeticsUpdated(): void {
+  invalidateCosmetics();
+  invalidateUserMe();
+  window.dispatchEvent(new CustomEvent(COSMETICS_UPDATED_EVENT));
+}
+
+function bindCosmeticsSync(): void {
+  if (__cosmeticsSyncBound || typeof window === "undefined") {
+    return;
+  }
+  __cosmeticsSyncBound = true;
+
+  window.addEventListener("storage", (event) => {
+    if (event.key === COSMETICS_SYNC_KEY && event.newValue) {
+      emitCosmeticsUpdated();
+    }
+  });
+
+  cosmeticsSyncChannel?.addEventListener("message", () => {
+    emitCosmeticsUpdated();
+  });
+}
+
+export function announceCosmeticsUpdated(): void {
+  emitCosmeticsUpdated();
+  const stamp = String(Date.now());
+  try {
+    localStorage.setItem(COSMETICS_SYNC_KEY, stamp);
+  } catch {
+    // Ignore storage errors.
+  }
+  cosmeticsSyncChannel?.postMessage(stamp);
+}
+
 export async function fetchCosmetics(): Promise<Cosmetics | null> {
+  bindCosmeticsSync();
   const now = Date.now();
   if (__cosmetics !== null && now - __cosmeticsFetchedAt < COSMETICS_CACHE_TTL_MS) {
     return __cosmetics;

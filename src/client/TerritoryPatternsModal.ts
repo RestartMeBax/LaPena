@@ -19,6 +19,7 @@ import "./components/CosmeticButton";
 import "./components/NotLoggedInWarning";
 import { modalHeader } from "./components/ui/ModalHeader";
 import {
+  COSMETICS_UPDATED_EVENT,
   fetchCosmetics,
   getPlayerCosmetics,
   resolveCosmetics,
@@ -44,6 +45,13 @@ export class TerritoryPatternsModal extends BaseModal {
     this.refresh();
   };
 
+  private onCosmeticsUpdated = async () => {
+    this.cosmetics = await fetchCosmetics();
+    this.userMeResponse = await getUserMe();
+    await this.updateFromSettings();
+    this.refresh();
+  };
+
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener(
@@ -56,6 +64,7 @@ export class TerritoryPatternsModal extends BaseModal {
       `${USER_SETTINGS_CHANGED_EVENT}:${PATTERN_KEY}`,
       this._onPatternSelected,
     );
+    window.addEventListener(COSMETICS_UPDATED_EVENT, this.onCosmeticsUpdated);
   }
 
   disconnectedCallback() {
@@ -64,6 +73,7 @@ export class TerritoryPatternsModal extends BaseModal {
       `${USER_SETTINGS_CHANGED_EVENT}:${PATTERN_KEY}`,
       this._onPatternSelected,
     );
+    window.removeEventListener(COSMETICS_UPDATED_EVENT, this.onCosmeticsUpdated);
   }
 
   private async updateFromSettings() {

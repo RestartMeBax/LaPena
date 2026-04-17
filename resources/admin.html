@@ -6,148 +6,364 @@
     <title>Robuste Admin Dashboard</title>
     <style>
       :root {
-        --bg: #0c1424;
-        --bg-card: #101d33;
-        --bg-card-2: #132742;
-        --line: #2a4368;
-        --text: #e7f1ff;
-        --muted: #9db4d6;
-        --ok: #2dc98c;
-        --bad: #e85b6e;
-        --cta: #2fa4ff;
+        --bg: #f4efe6;
+        --paper: rgba(255, 250, 241, 0.9);
+        --paper-strong: #fffaf1;
+        --ink: #1f2a22;
+        --muted: #6e7567;
+        --line: rgba(61, 78, 59, 0.16);
+        --line-strong: rgba(61, 78, 59, 0.28);
+        --accent: #2f6b4f;
+        --accent-2: #d0a75d;
+        --accent-soft: #edf4ec;
+        --danger: #b44b4b;
+        --danger-soft: #fff0ef;
+        --ok: #2f8f63;
+        --shadow: 0 22px 60px rgba(74, 59, 38, 0.12);
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html {
+        scroll-behavior: smooth;
+      }
+
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Segoe UI", Tahoma, sans-serif;
-        color: var(--text);
+        font-family: "Aptos", "Trebuchet MS", "Segoe UI Variable", sans-serif;
+        color: var(--ink);
         background:
-          radial-gradient(circle at 20% -10%, #1d3a67 0%, transparent 35%),
-          radial-gradient(circle at 120% 10%, #11375c 0%, transparent 30%),
-          linear-gradient(150deg, #08111f 0%, #111f36 45%, #0a1525 100%);
-        padding: 28px;
+          radial-gradient(circle at top left, rgba(224, 196, 141, 0.35), transparent 30%),
+          radial-gradient(circle at top right, rgba(78, 125, 95, 0.18), transparent 26%),
+          linear-gradient(180deg, #efe5d4 0%, #f6f0e5 48%, #f1ebdd 100%);
+        padding: 26px;
       }
 
       .page {
-        max-width: 1240px;
+        max-width: 1380px;
         margin: 0 auto;
         display: grid;
-        gap: 16px;
+        gap: 18px;
       }
 
       .card {
-        background: linear-gradient(160deg, var(--bg-card) 0%, var(--bg-card-2) 100%);
+        background: linear-gradient(180deg, rgba(255, 250, 241, 0.95), rgba(250, 244, 233, 0.92));
         border: 1px solid var(--line);
-        border-radius: 18px;
-        padding: 20px;
+        border-radius: 24px;
+        padding: 22px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
       }
 
-      h1, h2, h3 {
+      h1,
+      h2,
+      h3,
+      h4,
+      p {
         margin: 0;
       }
 
       h1 {
-        font-size: 28px;
+        font-size: clamp(2rem, 3vw, 3.4rem);
+        line-height: 1;
+        letter-spacing: -0.04em;
       }
 
       h2 {
-        font-size: 20px;
+        font-size: 1.4rem;
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        font-size: 1.05rem;
       }
 
       p {
-        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .eyebrow,
+      label,
+      th,
+      .nav-pill,
+      .table-count,
+      .micro-copy {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .eyebrow,
+      label,
+      .micro-copy,
+      th,
+      .nav-pill {
         color: var(--muted);
       }
 
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 28px;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 100% 0%, rgba(208, 167, 93, 0.18), transparent 26%),
+          radial-gradient(circle at 0% 20%, rgba(47, 107, 79, 0.14), transparent 28%);
+        pointer-events: none;
+      }
+
+      .hero-grid {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.9fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .hero-copy {
+        display: grid;
+        gap: 14px;
+      }
+
+      .hero-actions {
+        display: grid;
+        gap: 14px;
+        justify-items: end;
+      }
+
+      .action-row,
       .row {
         display: flex;
         gap: 12px;
         flex-wrap: wrap;
         align-items: center;
-        justify-content: space-between;
       }
 
-      .grid {
+      .action-row {
+        justify-content: flex-end;
+      }
+
+      .hero-note {
+        max-width: 36ch;
+        padding: 14px 16px;
+        border: 1px dashed var(--line-strong);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .status {
+        min-height: 56px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--paper-strong);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+      }
+
+      .status.ok {
+        border-color: rgba(47, 143, 99, 0.3);
+        background: rgba(236, 249, 241, 0.95);
+      }
+
+      .status.bad {
+        border-color: rgba(180, 75, 75, 0.32);
+        background: rgba(255, 240, 239, 0.98);
+      }
+
+      .content-grid {
         display: grid;
+        gap: 18px;
+      }
+
+      .nav-bar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 14px;
+        position: sticky;
+        top: 14px;
+        z-index: 5;
+      }
+
+      .nav-pill {
+        color: var(--ink);
+        text-decoration: none;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.65);
+        border-radius: 999px;
+        padding: 10px 14px;
+        transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+      }
+
+      .nav-pill:hover {
+        transform: translateY(-1px);
+        border-color: var(--line-strong);
+        background: rgba(255, 255, 255, 0.95);
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 14px;
       }
 
-      .grid.two {
+      .stat-card {
+        display: grid;
+        gap: 8px;
+        padding: 18px;
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(244, 238, 227, 0.9));
+      }
+
+      .stat-value {
+        font-size: 2rem;
+        line-height: 1;
+        letter-spacing: -0.05em;
+      }
+
+      .section-card {
+        display: grid;
+        gap: 18px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+        flex-wrap: wrap;
+      }
+
+      .section-copy {
+        display: grid;
+        gap: 8px;
+      }
+
+      .section-anchor {
+        scroll-margin-top: 96px;
+      }
+
+      .badge,
+      .table-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(208, 167, 93, 0.34);
+        background: rgba(208, 167, 93, 0.14);
+        color: #6d5525;
+        font-weight: 700;
+      }
+
+      .panel-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .panel-grid.two {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .field {
+      .form-panel,
+      .table-panel {
         display: grid;
-        gap: 6px;
+        gap: 14px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.5);
       }
 
-      label {
+      .field,
+      .grid,
+      .stack {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field-note {
         font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
         color: var(--muted);
+      }
+
+      .subgrid.two {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       input,
       textarea,
       select {
         width: 100%;
-        border-radius: 12px;
-        border: 1px solid #3c5f92;
-        background: #0d1a2f;
-        color: var(--text);
-        padding: 10px 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(61, 78, 59, 0.18);
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--ink);
+        padding: 11px 13px;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        border-color: rgba(47, 107, 79, 0.48);
+        box-shadow: 0 0 0 4px rgba(47, 107, 79, 0.1);
+        background: #fffdf9;
       }
 
       textarea {
-        min-height: 92px;
+        min-height: 110px;
         resize: vertical;
       }
 
       button {
+        appearance: none;
         border: 0;
-        border-radius: 12px;
-        padding: 10px 14px;
+        border-radius: 14px;
+        padding: 11px 15px;
         font-weight: 700;
         cursor: pointer;
-        color: #04203e;
-        background: linear-gradient(145deg, #50bbff, var(--cta));
+        color: #fffdf8;
+        background: linear-gradient(135deg, #2f6b4f, #438866);
+        box-shadow: 0 10px 20px rgba(47, 107, 79, 0.18);
+      }
+
+      button:hover {
+        filter: brightness(1.03);
       }
 
       .danger {
-        background: linear-gradient(145deg, #ff8f9c, #ff6478);
+        background: linear-gradient(135deg, #b44b4b, #cf6464);
+        box-shadow: 0 10px 20px rgba(180, 75, 75, 0.16);
       }
 
       .mini-btn {
-        padding: 6px 10px;
+        padding: 8px 11px;
         font-size: 12px;
-        border-radius: 10px;
-      }
-
-      .status {
-        padding: 12px;
-        border: 1px solid var(--line);
         border-radius: 12px;
-        background: #0b182c;
-      }
-
-      .status.ok {
-        border-color: color-mix(in srgb, var(--ok) 45%, var(--line));
-      }
-
-      .status.bad {
-        border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
       }
 
       .table-wrap {
         overflow: auto;
         border: 1px solid var(--line);
-        border-radius: 12px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.7);
       }
 
       table {
@@ -158,102 +374,244 @@
 
       th,
       td {
-        padding: 9px 10px;
-        border-bottom: 1px solid #243e62;
+        padding: 12px 12px;
+        border-bottom: 1px solid rgba(61, 78, 59, 0.1);
         text-align: left;
         font-size: 13px;
+        vertical-align: top;
       }
 
       th {
-        color: #b7c9e4;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        font-size: 11px;
+        background: rgba(47, 107, 79, 0.04);
+      }
+
+      tr:hover td {
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .table-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .inline-upload {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .canvas-frame {
+        display: grid;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(237, 244, 236, 0.7), rgba(255, 255, 255, 0.55));
+      }
+
+      .empty-cell {
+        color: var(--muted);
+        text-align: center;
+        font-style: italic;
+        padding: 18px;
       }
 
       .hidden {
         display: none;
       }
 
-      @media (max-width: 900px) {
-        body {
-          padding: 16px;
+      @media (max-width: 1100px) {
+        .hero-grid,
+        .stats-grid,
+        .panel-grid.two,
+        .subgrid.two {
+          grid-template-columns: 1fr;
         }
 
-        .grid.two {
-          grid-template-columns: 1fr;
+        .hero-actions {
+          justify-items: start;
+        }
+
+        .action-row {
+          justify-content: flex-start;
+        }
+      }
+
+      @media (max-width: 720px) {
+        body {
+          padding: 14px;
+        }
+
+        .card,
+        .hero {
+          padding: 18px;
+          border-radius: 20px;
+        }
+
+        .nav-bar {
+          top: 8px;
         }
       }
     </style>
   </head>
   <body>
     <main class="page">
-      <section class="card">
-        <div class="row">
-          <div class="grid">
+      <section class="card hero">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <span class="eyebrow">Operations Console</span>
             <h1>Robuste Admin Dashboard</h1>
             <p>
-              Use your logged-in admin account. This panel manages flags, skins,
-              news, map entries, and shop items.
+              Manage flags, skins, news, maps, and shop entries from one place.
+              The layout is grouped by workflow so you can create content first,
+              then verify and maintain it below.
             </p>
           </div>
-          <div class="row">
-            <button id="refreshAll">Refresh All</button>
-            <button id="reauth" class="danger">Re-check Access</button>
+          <div class="hero-actions">
+            <div class="action-row">
+              <button id="refreshAll">Refresh All</button>
+              <button id="reauth" class="danger">Re-check Access</button>
+            </div>
+            <div class="hero-note">
+              <div class="micro-copy">Recommended flow</div>
+              <p>Upload media, save the entity, then confirm it in the data tables before leaving the page.</p>
+            </div>
           </div>
         </div>
-        <div id="status" class="status" style="margin-top:12px">
-          Checking session...
-        </div>
+        <div id="status" class="status" style="margin-top:16px">Checking session...</div>
       </section>
 
-      <section id="content" class="grid hidden">
-        <section class="card">
-          <h2>Create Flag / Skin</h2>
-          <div class="grid two" style="margin-top: 14px">
-            <div class="grid">
-              <h3>Add Flag</h3>
-              <div class="field"><label>Name</label><input id="flagName" /></div>
-              <div class="field"><label>Description</label><textarea id="flagDescription"></textarea></div>
-              <div class="field"><label>Image URL</label><input id="flagImageUrl" />
-                <div style="margin-top:6px"><input type="file" accept="image/*" id="flagImageFile" style="display:none" /><button type="button" onclick="uploadImageFor('flagImageUrl','flagImageFile')" style="font-size:12px">Upload Image</button> <span id="flagImageFile_status" style="font-size:12px;color:var(--muted)"></span></div>
+      <section id="content" class="content-grid hidden">
+        <nav class="card nav-bar">
+          <a class="nav-pill" href="#overviewSection">Overview</a>
+          <a class="nav-pill" href="#mediaSection">Flags and Skins</a>
+          <a class="nav-pill" href="#newsSection">News</a>
+          <a class="nav-pill" href="#mapsSection">Maps</a>
+          <a class="nav-pill" href="#shopSection">Shop</a>
+          <a class="nav-pill" href="#tablesSection">Data Tables</a>
+        </nav>
+
+        <section id="overviewSection" class="section-anchor card section-card">
+          <div class="section-header">
+            <div class="section-copy">
+              <span class="eyebrow">At a glance</span>
+              <h2>Workspace Overview</h2>
+              <p>Quick counts for every managed content type on the current deployment.</p>
+            </div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span class="micro-copy">Flags</span>
+              <strong id="flagsStat" class="stat-value">0</strong>
+              <p>Country and custom emblem assets.</p>
+            </div>
+            <div class="stat-card">
+              <span class="micro-copy">Skins</span>
+              <strong id="skinsStat" class="stat-value">0</strong>
+              <p>Territory image skins and uploaded art.</p>
+            </div>
+            <div class="stat-card">
+              <span class="micro-copy">News</span>
+              <strong id="newsStat" class="stat-value">0</strong>
+              <p>Homepage promos and announcements.</p>
+            </div>
+            <div class="stat-card">
+              <span class="micro-copy">Maps</span>
+              <strong id="mapsStat" class="stat-value">0</strong>
+              <p>Selectable map entries and metadata.</p>
+            </div>
+            <div class="stat-card">
+              <span class="micro-copy">Shop</span>
+              <strong id="shopStat" class="stat-value">0</strong>
+              <p>Purchasable or free items exposed in store UI.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="mediaSection" class="section-anchor card section-card">
+          <div class="section-header">
+            <div class="section-copy">
+              <span class="eyebrow">Create media</span>
+              <h2>Flags and Skins</h2>
+              <p>Both forms keep the same backend behavior, but the inputs are split into focused panels.</p>
+            </div>
+          </div>
+          <div class="panel-grid two">
+            <article class="form-panel">
+              <div class="section-copy">
+                <h3>Add Flag</h3>
+                <p>Use this for profile flags and symbolic assets.</p>
+              </div>
+              <div class="field"><label>Name</label><input id="flagName" placeholder="founders_flag" /></div>
+              <div class="field"><label>Description</label><textarea id="flagDescription" placeholder="Where this flag is used or what it represents"></textarea></div>
+              <div class="field">
+                <label>Image URL</label>
+                <input id="flagImageUrl" placeholder="/api/images/... or https://..." />
+                <div class="inline-upload">
+                  <input type="file" accept="image/*" id="flagImageFile" style="display:none" />
+                  <button type="button" class="mini-btn" onclick="uploadImageFor('flagImageUrl','flagImageFile')">Upload Image</button>
+                  <span id="flagImageFile_status" class="field-note"></span>
+                </div>
               </div>
               <button id="addFlag">Add Flag</button>
-            </div>
-            <div class="grid">
-              <h3>Add Skin</h3>
-              <div class="field"><label>Name</label><input id="skinName" /></div>
-              <div class="field"><label>Description</label><textarea id="skinDescription"></textarea></div>
-              <div class="field"><label>Image URL</label><input id="skinImageUrl" />
-                <div style="margin-top:6px"><input type="file" accept="image/*" id="skinImageFile" style="display:none" /><button type="button" onclick="uploadImageFor('skinImageUrl','skinImageFile')" style="font-size:12px">Upload Image</button> <span id="skinImageFile_status" style="font-size:12px;color:var(--muted)"></span></div>
+            </article>
+
+            <article class="form-panel">
+              <div class="section-copy">
+                <h3>Add Skin</h3>
+                <p>Image URL becomes the in-game territory appearance for the skin.</p>
+              </div>
+              <div class="field"><label>Name</label><input id="skinName" placeholder="sunset_tile" /></div>
+              <div class="field"><label>Description</label><textarea id="skinDescription" placeholder="Short internal note for admins"></textarea></div>
+              <div class="field">
+                <label>Image URL</label>
+                <input id="skinImageUrl" placeholder="/api/images/... or https://..." />
+                <div class="inline-upload">
+                  <input type="file" accept="image/*" id="skinImageFile" style="display:none" />
+                  <button type="button" class="mini-btn" onclick="uploadImageFor('skinImageUrl','skinImageFile')">Upload Image</button>
+                  <span id="skinImageFile_status" class="field-note"></span>
+                </div>
               </div>
               <button id="addSkin">Add Skin</button>
-            </div>
+            </article>
           </div>
         </section>
 
-        <section class="card">
-          <h2>Create News</h2>
-          <div class="grid two" style="margin-top: 14px">
-            <div class="grid">
-              <div class="field"><label>Title</label><input id="newsTitle" /></div>
-              <div class="field"><label>Description</label><textarea id="newsDescription"></textarea></div>
+        <section id="newsSection" class="section-anchor card section-card">
+          <div class="section-header">
+            <div class="section-copy">
+              <span class="eyebrow">Publish content</span>
+              <h2>News</h2>
+              <p>Compose announcement cards with destination links and optional artwork.</p>
             </div>
-            <div class="grid">
-              <div class="field"><label>Target URL</label><input id="newsUrl" /></div>
-              <div class="field"><label>Image URL</label><input id="newsImageUrl" /></div>
+          </div>
+          <div class="panel-grid two">
+            <article class="form-panel">
+              <div class="field"><label>Title</label><input id="newsTitle" placeholder="Version 1.2 released" /></div>
+              <div class="field"><label>Description</label><textarea id="newsDescription" placeholder="Summary shown to players"></textarea></div>
+            </article>
+            <article class="form-panel">
+              <div class="field"><label>Target URL</label><input id="newsUrl" placeholder="https://..." /></div>
+              <div class="field"><label>Image URL</label><input id="newsImageUrl" placeholder="https://..." /></div>
               <button id="addNews">Add News</button>
-            </div>
+            </article>
           </div>
         </section>
 
-        <section class="card">
-          <h2>Create Map Entry</h2>
-          <p style="margin-top:8px">
-            Live picker support currently works when Map Key matches an existing map enum key/value (for example World, Europe, NorthAmerica).
-          </p>
-          <div class="grid two" style="margin-top: 14px">
-            <div class="grid">
+        <section id="mapsSection" class="section-anchor card section-card">
+          <div class="section-header">
+            <div class="section-copy">
+              <span class="eyebrow">Maps</span>
+              <h2>Create Map Entry</h2>
+              <p>Picker support works best when the map key matches an existing enum key or value such as World, Europe, or NorthAmerica.</p>
+            </div>
+          </div>
+          <div class="panel-grid two">
+            <article class="form-panel">
               <div class="field">
                 <label>Map Key</label>
                 <input id="mapKey" placeholder="custom_world_1" list="mapKeyOptions" />
@@ -261,8 +619,8 @@
               </div>
               <div class="field"><label>Map Name</label><input id="mapName" /></div>
               <div class="field"><label>Description</label><textarea id="mapDescription"></textarea></div>
-            </div>
-            <div class="grid">
+            </article>
+            <article class="form-panel">
               <div class="field"><label>Preview Image URL</label><input id="mapImageUrl" /></div>
               <div class="field"><label>Map Data URL</label><input id="mapUrl" /></div>
               <div class="field">
@@ -270,86 +628,140 @@
                 <select id="mapEnabled"><option value="true">Yes</option><option value="false">No</option></select>
               </div>
               <button id="addMap">Add Map Entry</button>
-            </div>
+            </article>
           </div>
         </section>
 
-        <section class="card">
-          <h2>Create / Update Shop Item</h2>
-          <div class="grid two" style="margin-top: 14px">
-            <div class="grid">
-              <div class="field"><label>Item Type</label>
-                <select id="shopType">
-                  <option value="">-- select --</option>
-                  <option value="flag">flag</option>
-                  <option value="skin">skin</option>
-                  <option value="pack">pack</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Item Key</label>
-                <input id="shopKey" placeholder="founders_flag" list="shopKeyOptions" />
-                <datalist id="shopKeyOptions"></datalist>
+        <section id="shopSection" class="section-anchor card section-card">
+          <div class="section-header">
+            <div class="section-copy">
+              <span class="eyebrow">Store editor</span>
+              <h2>Create or Update Shop Item</h2>
+              <p>The helper fields still prefill from existing flags and skins, but the editor is now grouped by pricing, metadata, and preview.</p>
+            </div>
+          </div>
+          <div class="panel-grid two">
+            <article class="form-panel">
+              <div class="subgrid two">
+                <div class="field"><label>Item Type</label>
+                  <select id="shopType">
+                    <option value="">-- select --</option>
+                    <option value="flag">flag</option>
+                    <option value="skin">skin</option>
+                    <option value="pack">pack</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Item Key</label>
+                  <input id="shopKey" placeholder="founders_flag" list="shopKeyOptions" />
+                  <datalist id="shopKeyOptions"></datalist>
+                </div>
               </div>
               <div class="field"><label>Title</label><input id="shopTitle" /></div>
               <div class="field"><label>Description</label><textarea id="shopDescription"></textarea></div>
-            </div>
-            <div class="grid">
-              <div class="field"><label>Soft Price</label><input id="shopSoftPrice" type="number" min="0" /></div>
-              <div class="field"><label>Hard Price</label><input id="shopHardPrice" type="number" min="0" /></div>
-              <div class="field"><label>Image URL Helper</label><input id="shopImageUrl" placeholder="https://..." />
-                <div id="shopImageNote" style="display:none;color:#60a5fa;font-size:12px;margin-top:4px;">ℹ For skins, this image is used as the in-game appearance.</div>
-                <div style="margin-top:6px"><input type="file" accept="image/*" id="shopImageFile" style="display:none" /><button type="button" onclick="uploadImageFor('shopImageUrl','shopImageFile')" style="font-size:12px">Upload Image</button> <span id="shopImageFile_status" style="font-size:12px;color:var(--muted)"></span></div>
+              <div class="subgrid two">
+                <div class="field"><label>Soft Price</label><input id="shopSoftPrice" type="number" min="0" /></div>
+                <div class="field"><label>Hard Price</label><input id="shopHardPrice" type="number" min="0" /></div>
               </div>
-              <div id="shopSkinPreviewWrap" class="field" style="display:none">
-                <label>In-Game Territory Preview</label>
-                <canvas id="shopSkinPreview" width="320" height="160" style="display:block;width:100%;max-width:420px;height:auto;border:1px solid #35527a;border-radius:8px;background:#071a33;image-rendering:pixelated"></canvas>
-                <div class="row" style="justify-content:flex-start;gap:10px;margin-top:8px;flex-wrap:wrap">
-                  <button id="shopPreviewSkinBtn" type="button">Refresh Preview</button>
-                  <label style="font-size:12px;color:#9ec1ff">Zoom</label>
-                  <input id="shopSkinTileSize" type="range" min="1" max="8" value="2" style="width:120px" />
-                  <span id="shopSkinTileSizeVal" style="font-size:12px;color:#9ec1ff">2</span>
-                </div>
-                <div style="font-size:12px;color:#8ca5c7;margin-top:6px">Preview shows a smooth, close-to-image in-game look.</div>
-              </div>
-              <div class="field"><label>Metadata JSON</label><textarea id="shopMetadata" placeholder='{"imageUrl":"..."}'></textarea></div>
               <div class="field">
                 <label>Enabled</label>
                 <select id="shopEnabled"><option value="true">Yes</option><option value="false">No</option></select>
               </div>
-              <div class="row" style="justify-content:flex-start">
+              <div class="action-row" style="justify-content:flex-start">
                 <button id="shopAutoKey" type="button">Auto Key From Title</button>
-                <button id="shopInjectImage" type="button">Inject Image Into Metadata</button>
               </div>
-              <button id="upsertShop">Save Shop Item</button>
+            </article>
+
+            <article class="form-panel">
+              <div class="field">
+                <label>Image URL Helper</label>
+                <input id="shopImageUrl" placeholder="https://..." />
+                <div id="shopImageNote" class="field-note" style="display:none">For skins, this image is used as the in-game appearance.</div>
+                <div class="inline-upload">
+                  <input type="file" accept="image/*" id="shopImageFile" style="display:none" />
+                  <button type="button" class="mini-btn" onclick="uploadImageFor('shopImageUrl','shopImageFile')">Upload Image</button>
+                  <span id="shopImageFile_status" class="field-note"></span>
+                </div>
+              </div>
+              <div id="shopSkinPreviewWrap" class="canvas-frame" style="display:none">
+                <div class="section-copy">
+                  <label>In-Game Territory Preview</label>
+                  <p>Preview the image as a territory texture before saving.</p>
+                </div>
+                <canvas id="shopSkinPreview" width="320" height="160" style="display:block;width:100%;max-width:420px;height:auto;border:1px solid rgba(61,78,59,0.18);border-radius:12px;background:#dce8dc;image-rendering:pixelated"></canvas>
+                <div class="action-row" style="justify-content:flex-start">
+                  <button id="shopPreviewSkinBtn" type="button">Refresh Preview</button>
+                  <label style="margin-left:4px">Zoom</label>
+                  <input id="shopSkinTileSize" type="range" min="1" max="8" value="2" style="width:120px" />
+                  <span id="shopSkinTileSizeVal" class="field-note">2</span>
+                </div>
+              </div>
+              <div class="field"><label>Metadata JSON</label><textarea id="shopMetadata" placeholder='{"imageUrl":"..."}'></textarea></div>
+              <div class="action-row" style="justify-content:flex-start">
+                <button id="shopInjectImage" type="button">Inject Image Into Metadata</button>
+                <button id="upsertShop">Save Shop Item</button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="tablesSection" class="section-anchor section-card">
+          <div class="panel-grid two">
+            <section class="card table-panel">
+              <div class="table-header">
+                <div class="section-copy">
+                  <span class="eyebrow">Live data</span>
+                  <h3>Flags</h3>
+                </div>
+                <span id="flagsCount" class="table-count">0</span>
+              </div>
+              <div class="table-wrap"><table id="flagsTable"></table></div>
+            </section>
+
+            <section class="card table-panel">
+              <div class="table-header">
+                <div class="section-copy">
+                  <span class="eyebrow">Live data</span>
+                  <h3>Skins</h3>
+                </div>
+                <span id="skinsCount" class="table-count">0</span>
+              </div>
+              <div class="table-wrap"><table id="skinsTable"></table></div>
+            </section>
+          </div>
+
+          <section class="card table-panel">
+            <div class="table-header">
+              <div class="section-copy">
+                <span class="eyebrow">Live data</span>
+                <h3>News</h3>
+              </div>
+              <span id="newsCount" class="table-count">0</span>
             </div>
-          </div>
-        </section>
+            <div class="table-wrap"><table id="newsTable"></table></div>
+          </section>
 
-        <section class="card grid two">
-          <div>
-            <h3>Flags</h3>
-            <div class="table-wrap"><table id="flagsTable"></table></div>
-          </div>
-          <div>
-            <h3>Skins</h3>
-            <div class="table-wrap"><table id="skinsTable"></table></div>
-          </div>
-        </section>
+          <section class="card table-panel">
+            <div class="table-header">
+              <div class="section-copy">
+                <span class="eyebrow">Live data</span>
+                <h3>Maps</h3>
+              </div>
+              <span id="mapsCount" class="table-count">0</span>
+            </div>
+            <div class="table-wrap"><table id="mapsTable"></table></div>
+          </section>
 
-        <section class="card">
-          <h3>News</h3>
-          <div class="table-wrap"><table id="newsTable"></table></div>
-        </section>
-
-        <section class="card">
-          <h3>Maps</h3>
-          <div class="table-wrap"><table id="mapsTable"></table></div>
-        </section>
-
-        <section class="card">
-          <h3>Shop Items</h3>
-          <div class="table-wrap"><table id="shopTable"></table></div>
+          <section class="card table-panel">
+            <div class="table-header">
+              <div class="section-copy">
+                <span class="eyebrow">Live data</span>
+                <h3>Shop Items</h3>
+              </div>
+              <span id="shopCount" class="table-count">0</span>
+            </div>
+            <div class="table-wrap"><table id="shopTable"></table></div>
+          </section>
         </section>
       </section>
     </main>
@@ -433,14 +845,16 @@
       function renderTable(elId, columns, rows) {
         const table = document.getElementById(elId);
         const head = `<tr>${columns.map((c) => `<th>${htmlEsc(c)}</th>`).join("")}</tr>`;
-        const body = rows
-          .map(
-            (row) =>
-              `<tr>${row
-                .map((v) => `<td>${htmlEsc(v)}</td>`)
-                .join("")}</tr>`,
-          )
-          .join("");
+        const body = rows.length
+          ? rows
+              .map(
+                (row) =>
+                  `<tr>${row
+                    .map((v) => `<td>${htmlEsc(v)}</td>`)
+                    .join("")}</tr>`,
+              )
+              .join("")
+          : `<tr><td colspan="${columns.length}" class="empty-cell">No records yet.</td></tr>`;
         table.innerHTML = head + body;
       }
 
@@ -448,15 +862,17 @@
         const table = document.getElementById(elId);
         const fullColumns = [...columns, "Actions"];
         const head = `<tr>${fullColumns.map((c) => `<th>${htmlEsc(c)}</th>`).join("")}</tr>`;
-        const body = rows
-          .map((row) => {
-            const safeCells = row.values.map((v) => `<td>${htmlEsc(v)}</td>`).join("");
-            const deletePath = `${endpointBase}/${row.id}`;
-            const label = `${entityLabel} #${row.id}`;
-            const actionCell = `<td><button type="button" class="danger mini-btn delete-row-btn" data-delete-path="${htmlEsc(deletePath)}" data-delete-label="${htmlEsc(label)}">Delete</button></td>`;
-            return `<tr>${safeCells}${actionCell}</tr>`;
-          })
-          .join("");
+        const body = rows.length
+          ? rows
+              .map((row) => {
+                const safeCells = row.values.map((v) => `<td>${htmlEsc(v)}</td>`).join("");
+                const deletePath = `${endpointBase}/${row.id}`;
+                const label = `${entityLabel} #${row.id}`;
+                const actionCell = `<td><button type="button" class="danger mini-btn delete-row-btn" data-delete-path="${htmlEsc(deletePath)}" data-delete-label="${htmlEsc(label)}">Delete</button></td>`;
+                return `<tr>${safeCells}${actionCell}</tr>`;
+              })
+              .join("")
+          : `<tr><td colspan="${fullColumns.length}" class="empty-cell">No records yet.</td></tr>`;
         table.innerHTML = head + body;
       }
 
@@ -464,23 +880,47 @@
         const table = document.getElementById(elId);
         const columns = ["ID", "Name", "Description", "Image", "Actions"];
         const head = `<tr>${columns.map((c) => `<th>${htmlEsc(c)}</th>`).join("")}</tr>`;
-        const body = items
-          .map((item) => {
-            const imgUrl = item.imageUrl || "";
-            const imgPreview = imgUrl
-              ? `<img src="${htmlEsc(imgUrl)}" style="max-width:60px;max-height:60px;border-radius:4px" onerror="this.style.display='none';this.nextSibling.style.display='inline'" /><span style="display:none;color:var(--bad);font-size:11px">broken</span>`
-              : '<span style="color:var(--muted);font-size:11px">none</span>';
-            const cells = `<td>${item.id}</td><td>${htmlEsc(item.name)}</td><td>${htmlEsc(item.description)}</td><td>${imgPreview}</td>`;
-            const uploadId = `upload_${entityLabel}_${item.id}`;
-            const actions = `<td>
-              <input type="file" accept="image/*" id="${uploadId}" style="display:none" />
-              <button type="button" class="mini-btn" onclick="uploadAndUpdate('${endpointBase}', ${item.id}, '${uploadId}')">Upload Image</button>
-              <button type="button" class="danger mini-btn delete-row-btn" data-delete-path="${endpointBase}/${item.id}" data-delete-label="${entityLabel} #${item.id}">Delete</button>
-            </td>`;
-            return `<tr>${cells}${actions}</tr>`;
-          })
-          .join("");
+        const body = items.length
+          ? items
+              .map((item) => {
+                const imgUrl = item.imageUrl || "";
+                const imgPreview = imgUrl
+                  ? `<img src="${htmlEsc(imgUrl)}" style="max-width:60px;max-height:60px;border-radius:8px;border:1px solid rgba(61,78,59,0.14)" onerror="this.style.display='none';this.nextSibling.style.display='inline'" /><span style="display:none;color:var(--danger);font-size:11px">broken</span>`
+                  : '<span style="color:var(--muted);font-size:11px">none</span>';
+                const cells = `<td>${item.id}</td><td>${htmlEsc(item.name)}</td><td>${htmlEsc(item.description)}</td><td>${imgPreview}</td>`;
+                const uploadId = `upload_${entityLabel}_${item.id}`;
+                const actions = `<td>
+                  <input type="file" accept="image/*" id="${uploadId}" style="display:none" />
+                  <div class="inline-upload">
+                    <button type="button" class="mini-btn" onclick="uploadAndUpdate('${endpointBase}', ${item.id}, '${uploadId}')">Upload Image</button>
+                    <button type="button" class="danger mini-btn delete-row-btn" data-delete-path="${endpointBase}/${item.id}" data-delete-label="${entityLabel} #${item.id}">Delete</button>
+                  </div>
+                </td>`;
+                return `<tr>${cells}${actions}</tr>`;
+              })
+              .join("")
+          : `<tr><td colspan="${columns.length}" class="empty-cell">No records yet.</td></tr>`;
         table.innerHTML = head + body;
+      }
+
+      function setCount(id, value) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.textContent = String(value);
+        }
+      }
+
+      function syncOverviewCounts(newsCount = 0) {
+        setCount("flagsStat", knownFlags.length);
+        setCount("skinsStat", knownSkins.length);
+        setCount("newsStat", newsCount);
+        setCount("mapsStat", knownMaps.length);
+        setCount("shopStat", knownShopItems.length);
+        setCount("flagsCount", knownFlags.length);
+        setCount("skinsCount", knownSkins.length);
+        setCount("newsCount", newsCount);
+        setCount("mapsCount", knownMaps.length);
+        setCount("shopCount", knownShopItems.length);
       }
 
       async function uploadAndUpdate(endpointBase, id, fileInputId) {
@@ -882,6 +1322,8 @@
             "/api/admin/news",
             "news item",
           );
+        } else {
+          renderTable("newsTable", ["ID", "Title", "Description", "URL", "Image URL"], []);
         }
 
         if (maps.ok) {
@@ -927,6 +1369,7 @@
         }
 
         setShopKeyOptions();
+        syncOverviewCounts(news.ok && Array.isArray(news.body.news) ? news.body.news.length : 0);
       }
 
       async function createEntity(endpoint, payload, successText) {

@@ -252,6 +252,13 @@ export class AuthDatabase {
     return row !== undefined;
   }
 
+  public getAdminEmails(): string[] {
+    const rows = this.db
+      .prepare("SELECT email FROM admin_emails ORDER BY created_at ASC")
+      .all() as { email: string }[];
+    return rows.map((r) => r.email);
+  }
+
   private ensureRoleForEmail(email: string, role: string) {
     const normalizedEmail = normalizeEmail(email);
     const row = this.db

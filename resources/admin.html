@@ -1747,9 +1747,9 @@
             "adminUsersTable",
             ["ID", "Email", "Display Name", "Roles"],
             knownAdmins.map((a) => [
-              a.id,
+              a.id ?? "—",
               a.email || "",
-              a.displayName || "",
+              a.pendingSignup ? "(pending signup)" : (a.displayName || ""),
               Array.isArray(a.roles) ? a.roles.join(", ") : "",
             ]),
           );

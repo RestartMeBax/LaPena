@@ -101,13 +101,33 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
   });
 
   router.get("/admins", (_req, res) => {
-    const admins = db.getUsersByRole("admin").map((user) => ({
-      id: user.id,
-      email: user.email,
-      displayName: user.displayName,
-      roles: user.roles,
-      createdAt: user.createdAt,
-    }));
+    const existingAdmins = db.getUsersByRole("admin");
+    const existingEmails = new Set(existingAdmins.map((u) => u.email.toLowerCase()));
+
+    // Include pre-granted emails that haven't signed up yet
+    const allAdminEmails = db.getAdminEmails();
+    const pendingAdmins = allAdminEmails
+      .filter((email) => !existingEmails.has(email.toLowerCase()))
+      .map((email) => ({
+        id: null,
+        email,
+        displayName: null,
+        roles: ["admin"],
+        createdAt: null,
+        pendingSignup: true,
+      }));
+
+    const admins = [
+      ...existingAdmins.map((user) => ({
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        roles: user.roles,
+        createdAt: user.createdAt,
+        pendingSignup: false,
+      })),
+      ...pendingAdmins,
+    ];
     return res.json({ admins });
   });
 

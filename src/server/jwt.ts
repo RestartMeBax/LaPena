@@ -31,31 +31,28 @@ export async function verifyClientToken(
       };
     }
   }
-  // In dev, try HS256 first to avoid a JWKS fetch that returns HTML from the local server.
-  if (config.env() === GameEnv.Dev) {
-    try {
-      const secret = new TextEncoder().encode(
-        process.env.AUTH_JWT_SECRET ?? "robuste-dev-secret",
-      );
-      const { payload } = await jwtVerify(token, secret, {
-        algorithms: ["HS256"],
-      });
-      // Local JWTs use a plain UUID sub, not base64url-encoded — skip TokenPayloadSchema.
-      const sub = typeof payload.sub === "string" ? payload.sub : null;
-      if (sub) {
-        const claims: TokenPayload = {
-          jti: typeof payload.jti === "string" ? payload.jti : "dev",
-          sub,
-          iat: typeof payload.iat === "number" ? payload.iat : 0,
-          iss: typeof payload.iss === "string" ? payload.iss : "localhost",
-          aud: typeof payload.aud === "string" ? payload.aud : "localhost",
-          exp: typeof payload.exp === "number" ? payload.exp : 0,
-        };
-        return { type: "success", persistentId: sub, claims };
-      }
-    } catch {
-      // Not a valid local HS256 token — fall through to EdDSA/JWKS path.
+  // Try HS256 first — the built-in AuthRoutes signs tokens with HS256.
+  try {
+    const secret = new TextEncoder().encode(
+      process.env.AUTH_JWT_SECRET ?? "robuste-dev-secret",
+    );
+    const { payload } = await jwtVerify(token, secret, {
+      algorithms: ["HS256"],
+    });
+    const sub = typeof payload.sub === "string" ? payload.sub : null;
+    if (sub) {
+      const claims: TokenPayload = {
+        jti: typeof payload.jti === "string" ? payload.jti : "local",
+        sub,
+        iat: typeof payload.iat === "number" ? payload.iat : 0,
+        iss: typeof payload.iss === "string" ? payload.iss : "",
+        aud: typeof payload.aud === "string" ? payload.aud : "",
+        exp: typeof payload.exp === "number" ? payload.exp : 0,
+      };
+      return { type: "success", persistentId: sub, claims };
     }
+  } catch {
+    // Not a valid HS256 token — fall through to EdDSA/JWKS path.
   }
   try {
     const issuer = config.jwtIssuer();
@@ -96,11 +93,10 @@ export async function getUserMe(
   | { type: "error"; message: string }
 > {
   try {
-    // Get the user object
-    const response = await fetch(config.jwtIssuer() + "/users/@me", {
+    // Get the user object from the local auth server
+    const response = await fetch(config.jwtIssuer() + "/api/auth/me", {
       headers: {
         authorization: `Bearer ${token}`,
-        "x-api-key": config.apiKey(),
       },
     });
     if (response.status !== 200) {

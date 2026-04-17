@@ -64,9 +64,12 @@ export abstract class DefaultServerConfig implements ServerConfig {
   abstract jwtAudience(): string;
   jwtIssuer(): string {
     const audience = this.jwtAudience();
-    return audience === "localhost"
-      ? "http://localhost:8787"
-      : `https://api.${audience}`;
+    if (audience === "localhost") {
+      return "http://localhost:8787";
+    }
+    // In containerized deployments (e.g. Render) all services run behind a
+    // single origin.  Workers can reach the master process over localhost.
+    return "http://localhost:3000";
   }
   async jwkPublicKey(): Promise<JWK> {
     if (this.publicKey) return this.publicKey;

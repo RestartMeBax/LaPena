@@ -323,7 +323,13 @@ export function resolveCosmetics(
 
   // Patterns × color palettes
   for (const [patternKey, pattern] of Object.entries(cosmetics.patterns)) {
-    const colorPalettes = [...(pattern.colorPalettes ?? []), null];
+    // If color palettes exist, expose only palette variants.
+    // Keeping a separate null/base entry creates duplicate-looking skins
+    // (e.g. pattern:key and pattern:key:admin_default).
+    const hasPalettes = (pattern.colorPalettes?.length ?? 0) > 0;
+    const colorPalettes = hasPalettes
+      ? [...(pattern.colorPalettes ?? [])]
+      : [null];
     for (const cp of colorPalettes) {
       const rel = patternRelationship(
         pattern,

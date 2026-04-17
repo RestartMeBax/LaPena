@@ -215,6 +215,7 @@ export class PlayerView {
   private static readonly SKIN_TEXTURE_MAX_SIZE = 2048;
   private static readonly SKIN_TEXTURE_MIN_SIZE = 64;
   private static readonly SKIN_TERRITORY_SPAN_PADDING = 1.2;
+  private static readonly SKIN_TILE_THRESHOLD = 96;
 
   private _territoryColor: Colord;
   private _borderColor: Colord;
@@ -436,14 +437,22 @@ export class PlayerView {
     }
 
     // Project one centered image over the territory footprint.
-    // No wrapping/modulo, so the image doesn't tile or "spin" while rendering.
+    // For very small uploads, repeat (tile) the image so it doesn't become one
+    // over-stretched blurry patch over large territories.
     const projection = this.skinProjection();
 
     const u = (worldX - projection.centerX) / projection.spanX + 0.5;
     const v = (worldY - projection.centerY) / projection.spanY + 0.5;
 
-    const fx = Math.max(0, Math.min(1, u)) * (this.imgW - 1);
-    const fy = Math.max(0, Math.min(1, v)) * (this.imgH - 1);
+    const shouldTileSmallTexture =
+      this.imgW < PlayerView.SKIN_TILE_THRESHOLD ||
+      this.imgH < PlayerView.SKIN_TILE_THRESHOLD;
+    const wrap01 = (value: number) => ((value % 1) + 1) % 1;
+    const ux = shouldTileSmallTexture ? wrap01(u) : Math.max(0, Math.min(1, u));
+    const vy = shouldTileSmallTexture ? wrap01(v) : Math.max(0, Math.min(1, v));
+
+    const fx = ux * (this.imgW - 1);
+    const fy = vy * (this.imgH - 1);
 
     const p = this.imagePixels;
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;

@@ -549,31 +549,54 @@ export class TerritoryLayer implements Layer {
     const drawCanvasStart = FrameProfiler.start();
     const prevSmoothing = context.imageSmoothingEnabled;
     context.imageSmoothingEnabled = false;
-    context.drawImage(
-      this.canvas,
-      -this.game.width() / 2,
-      -this.game.height() / 2,
-      this.game.width(),
-      this.game.height(),
-    );
-    if (!this.alternativeView && this.hasAnyImageSkins) {
-      context.imageSmoothingEnabled = false;
-      context.drawImage(
-        this.skinCanvas,
-        -this.game.width() / 2,
-        -this.game.height() / 2,
-        this.game.width(),
-        this.game.height(),
-      );
+    const [drawTopLeft, drawBottomRight] =
+      this.transformHandler.screenBoundingRect();
+    const dx0 = Math.max(0, drawTopLeft.x);
+    const dy0 = Math.max(0, drawTopLeft.y);
+    const dx1 = Math.min(this.game.width() - 1, drawBottomRight.x);
+    const dy1 = Math.min(this.game.height() - 1, drawBottomRight.y);
+    const drawW = dx1 - dx0 + 1;
+    const drawH = dy1 - dy0 + 1;
 
-      context.imageSmoothingEnabled = false;
+    if (drawW > 0 && drawH > 0) {
+      const destX = -this.game.width() / 2 + dx0;
+      const destY = -this.game.height() / 2 + dy0;
       context.drawImage(
-        this.borderCanvas,
-        -this.game.width() / 2,
-        -this.game.height() / 2,
-        this.game.width(),
-        this.game.height(),
+        this.canvas,
+        dx0,
+        dy0,
+        drawW,
+        drawH,
+        destX,
+        destY,
+        drawW,
+        drawH,
       );
+      if (!this.alternativeView && this.hasAnyImageSkins) {
+        context.drawImage(
+          this.skinCanvas,
+          dx0,
+          dy0,
+          drawW,
+          drawH,
+          destX,
+          destY,
+          drawW,
+          drawH,
+        );
+
+        context.drawImage(
+          this.borderCanvas,
+          dx0,
+          dy0,
+          drawW,
+          drawH,
+          destX,
+          destY,
+          drawW,
+          drawH,
+        );
+      }
     }
     context.imageSmoothingEnabled = prevSmoothing;
     FrameProfiler.end("TerritoryLayer:drawCanvas", drawCanvasStart);

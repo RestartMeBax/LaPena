@@ -490,6 +490,7 @@ export async function getPlayerCosmetics(): Promise<PlayerCosmetics> {
         colorPalette: refs.patternColorPaletteName
           ? cosmetics.colorPalettes?.[refs.patternColorPaletteName]
           : undefined,
+        imageUrl: pattern.url,
       };
     }
   } else {

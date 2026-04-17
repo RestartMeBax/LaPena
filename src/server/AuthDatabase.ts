@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { normalizeCosmeticKey } from "./CosmeticKey";
 
 export type UserRecord = {
   id: number;
@@ -36,6 +37,14 @@ export type AdminShopItemRecord = {
   enabled: boolean;
   createdAt: number;
   updatedAt: number;
+};
+
+export type AdminCosmeticRecord = {
+  id: number;
+  name: string;
+  description: string;
+  imageUrl: string | null;
+  createdAt: number;
 };
 
 export type MostWinLeaderboardRecord = {
@@ -480,11 +489,39 @@ export class AuthDatabase {
     return rows.map((r) => ({ id: r.id, name: r.name, description: r.description, imageUrl: r.image_url, createdAt: r.created_at }));
   }
 
+  private getFlagById(id: number): AdminCosmeticRecord | null {
+    const row = this.db
+      .prepare("SELECT id, name, description, image_url, created_at FROM flags WHERE id = ?")
+      .get(id) as { id: number; name: string; description: string; image_url: string | null; created_at: number } | undefined;
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      imageUrl: row.image_url,
+      createdAt: row.created_at,
+    };
+  }
+
   public getSkins(): { id: number; name: string; description: string; imageUrl: string | null; createdAt: number }[] {
     const rows = this.db
       .prepare("SELECT id, name, description, image_url, created_at FROM skins ORDER BY created_at DESC")
       .all() as { id: number; name: string; description: string; image_url: string | null; created_at: number }[];
     return rows.map((r) => ({ id: r.id, name: r.name, description: r.description, imageUrl: r.image_url, createdAt: r.created_at }));
+  }
+
+  private getSkinById(id: number): AdminCosmeticRecord | null {
+    const row = this.db
+      .prepare("SELECT id, name, description, image_url, created_at FROM skins WHERE id = ?")
+      .get(id) as { id: number; name: string; description: string; image_url: string | null; created_at: number } | undefined;
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      imageUrl: row.image_url,
+      createdAt: row.created_at,
+    };
   }
 
   public getNews(): { id: number; title: string; description: string; url: string | null; imageUrl: string | null; createdAt: number }[] {
@@ -497,6 +534,29 @@ export class AuthDatabase {
   public createFlag(name: string, description: string, imageUrl?: string): void {
     this.db.prepare("INSERT INTO flags (name, description, image_url, created_at) VALUES (?, ?, ?, ?)")
       .run(name, description, imageUrl ?? null, nowSeconds());
+  }
+
+  public saveFlag(name: string, description: string, imageUrl?: string): { created: boolean; record: AdminCosmeticRecord } {
+    const normalizedKey = normalizeCosmeticKey(name);
+    const existing = this.getFlags().find((flag) => normalizeCosmeticKey(flag.name) === normalizedKey);
+
+    if (existing) {
+      this.db
+        .prepare("UPDATE flags SET name = ?, description = ?, image_url = ? WHERE id = ?")
+        .run(name, description, imageUrl ?? null, existing.id);
+      return {
+        created: false,
+        record: this.getFlagById(existing.id) as AdminCosmeticRecord,
+      };
+    }
+
+    const result = this.db
+      .prepare("INSERT INTO flags (name, description, image_url, created_at) VALUES (?, ?, ?, ?)")
+      .run(name, description, imageUrl ?? null, nowSeconds());
+    return {
+      created: true,
+      record: this.getFlagById(Number(result.lastInsertRowid)) as AdminCosmeticRecord,
+    };
   }
 
   public updateFlagImage(id: number, imageUrl: string): boolean {
@@ -512,6 +572,29 @@ export class AuthDatabase {
   public createSkin(name: string, description: string, imageUrl?: string): void {
     this.db.prepare("INSERT INTO skins (name, description, image_url, created_at) VALUES (?, ?, ?, ?)")
       .run(name, description, imageUrl ?? null, nowSeconds());
+  }
+
+  public saveSkin(name: string, description: string, imageUrl?: string): { created: boolean; record: AdminCosmeticRecord } {
+    const normalizedKey = normalizeCosmeticKey(name);
+    const existing = this.getSkins().find((skin) => normalizeCosmeticKey(skin.name) === normalizedKey);
+
+    if (existing) {
+      this.db
+        .prepare("UPDATE skins SET name = ?, description = ?, image_url = ? WHERE id = ?")
+        .run(name, description, imageUrl ?? null, existing.id);
+      return {
+        created: false,
+        record: this.getSkinById(existing.id) as AdminCosmeticRecord,
+      };
+    }
+
+    const result = this.db
+      .prepare("INSERT INTO skins (name, description, image_url, created_at) VALUES (?, ?, ?, ?)")
+      .run(name, description, imageUrl ?? null, nowSeconds());
+    return {
+      created: true,
+      record: this.getSkinById(Number(result.lastInsertRowid)) as AdminCosmeticRecord,
+    };
   }
 
   public updateSkinImage(id: number, imageUrl: string): boolean {

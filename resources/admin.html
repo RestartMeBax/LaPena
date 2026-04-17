@@ -704,8 +704,8 @@
           <div class="panel-grid two">
             <article class="form-panel">
               <div class="section-copy">
-                <h3>Add Flag</h3>
-                <p>Use this for profile flags and symbolic assets.</p>
+                <h3>Save Flag</h3>
+                <p>Use the same name to update an existing flag without breaking purchased ownership.</p>
               </div>
               <div class="field"><label>Name</label><input id="flagName" placeholder="founders_flag" /></div>
               <div class="field"><label>Description</label><textarea id="flagDescription" placeholder="Where this flag is used or what it represents"></textarea></div>
@@ -719,15 +719,15 @@
                 </div>
               </div>
               <div class="form-actions">
-                <button id="addFlag">Add Flag</button>
+                <button id="addFlag">Save Flag</button>
                 <button id="clearFlagForm" type="button" class="ghost-btn">Clear</button>
               </div>
             </article>
 
             <article class="form-panel">
               <div class="section-copy">
-                <h3>Add Skin</h3>
-                <p>Image URL becomes the in-game territory appearance for the skin.</p>
+                <h3>Save Skin</h3>
+                <p>Edit from the table or reuse the same name to replace the image and keep existing buyers covered.</p>
               </div>
               <div class="field"><label>Name</label><input id="skinName" placeholder="sunset_tile" /></div>
               <div class="field"><label>Description</label><textarea id="skinDescription" placeholder="Short internal note for admins"></textarea></div>
@@ -741,7 +741,7 @@
                 </div>
               </div>
               <div class="form-actions">
-                <button id="addSkin">Add Skin</button>
+                <button id="addSkin">Save Skin</button>
                 <button id="clearSkinForm" type="button" class="ghost-btn">Clear</button>
               </div>
             </article>
@@ -1177,6 +1177,7 @@
                 const actions = `<td>
                   <input type="file" accept="image/*" id="${uploadId}" style="display:none" />
                   <div class="inline-upload">
+                    <button type="button" class="mini-btn edit-cosmetic-btn" data-entity-type="${htmlEsc(entityLabel)}" data-id="${item.id}">Edit</button>
                     <button type="button" class="mini-btn" onclick="uploadAndUpdate('${endpointBase}', ${item.id}, '${uploadId}')">Upload Image</button>
                     <button type="button" class="danger mini-btn delete-row-btn" data-delete-path="${endpointBase}/${item.id}" data-delete-label="${entityLabel} #${item.id}">Delete</button>
                   </div>
@@ -1340,6 +1341,10 @@
           .replace(/^_+|_+$/g, "");
       }
 
+      function normalizeCosmeticName(value) {
+        return slugify(value);
+      }
+
       function parseJsonSafe(value) {
         try {
           const parsed = JSON.parse(value);
@@ -1363,6 +1368,57 @@
         options.innerHTML = maps
           .map((m) => `<option value="${htmlEsc(m.key || "")}"></option>`)
           .join("");
+      }
+
+      function prefillFlagFormIfKnown() {
+        const name = document.getElementById("flagName").value;
+        const normalized = normalizeCosmeticName(name);
+        if (!normalized) return;
+
+        const match = knownFlags.find((f) => normalizeCosmeticName(f.name) === normalized);
+        if (!match) return;
+
+        document.getElementById("flagName").value = match.name || "";
+        document.getElementById("flagDescription").value = match.description || "";
+        document.getElementById("flagImageUrl").value = match.imageUrl || "";
+        setStatus(`Loaded existing flag: ${match.name}. Saving will update it in place.`);
+      }
+
+      function prefillSkinFormIfKnown() {
+        const name = document.getElementById("skinName").value;
+        const normalized = normalizeCosmeticName(name);
+        if (!normalized) return;
+
+        const match = knownSkins.find((s) => normalizeCosmeticName(s.name) === normalized);
+        if (!match) return;
+
+        document.getElementById("skinName").value = match.name || "";
+        document.getElementById("skinDescription").value = match.description || "";
+        document.getElementById("skinImageUrl").value = match.imageUrl || "";
+        setStatus(`Loaded existing skin: ${match.name}. Saving will update it in place.`);
+      }
+
+      function loadCosmeticIntoForm(entityType, id) {
+        const list = entityType === "flag" ? knownFlags : knownSkins;
+        const item = list.find((entry) => Number(entry.id) === Number(id));
+        if (!item) {
+          setStatus(`Could not find ${entityType} #${id}.`, false);
+          return;
+        }
+
+        if (entityType === "flag") {
+          document.getElementById("flagName").value = item.name || "";
+          document.getElementById("flagDescription").value = item.description || "";
+          document.getElementById("flagImageUrl").value = item.imageUrl || "";
+          focusSection("mediaSection", "flagName");
+        } else {
+          document.getElementById("skinName").value = item.name || "";
+          document.getElementById("skinDescription").value = item.description || "";
+          document.getElementById("skinImageUrl").value = item.imageUrl || "";
+          focusSection("mediaSection", "skinName");
+        }
+
+        setStatus(`Loaded ${entityType}: ${item.name}. Saving will update the existing item.`);
       }
 
       function prefillMapFormIfKnown() {
@@ -1819,16 +1875,27 @@
         if (!requireFields([["flagName", "Flag name"], ["flagDescription", "Flag description"]])) {
           return;
         }
-        const success = await createEntity(
-          "/api/admin/flags",
-          {
+        const response = await requestJson("/api/admin/flags", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             name: document.getElementById("flagName").value.trim(),
             description: document.getElementById("flagDescription").value.trim(),
             imageUrl: document.getElementById("flagImageUrl").value.trim(),
-          },
-          "Flag created.",
-        );
+          }),
+        });
+        if (!response.ok) {
+          setStatus(response.body.error || "Save failed", false);
+          return;
+        }
+        const success = true;
         if (success) {
+          setStatus(
+            response.body.created
+              ? "Flag saved."
+              : "Flag updated in place. Existing buyers keep the same ownership key.",
+          );
+          await loadAllLists();
           clearFlagForm();
           document.getElementById("flagName").focus();
         }
@@ -1838,19 +1905,38 @@
         if (!requireFields([["skinName", "Skin name"], ["skinDescription", "Skin description"]])) {
           return;
         }
-        const success = await createEntity(
-          "/api/admin/skins",
-          {
+        const response = await requestJson("/api/admin/skins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             name: document.getElementById("skinName").value.trim(),
             description: document.getElementById("skinDescription").value.trim(),
             imageUrl: document.getElementById("skinImageUrl").value.trim(),
-          },
-          "Skin created.",
-        );
+          }),
+        });
+        if (!response.ok) {
+          setStatus(response.body.error || "Save failed", false);
+          return;
+        }
+        const success = true;
         if (success) {
+          setStatus(
+            response.body.created
+              ? "Skin saved."
+              : "Skin updated in place. Existing buyers keep the same ownership key.",
+          );
+          await loadAllLists();
           clearSkinForm();
           document.getElementById("skinName").focus();
         }
+      });
+
+      document.getElementById("flagName").addEventListener("change", () => {
+        prefillFlagFormIfKnown();
+      });
+
+      document.getElementById("skinName").addEventListener("change", () => {
+        prefillSkinFormIfKnown();
       });
 
       document.getElementById("addNews").addEventListener("click", async () => {
@@ -2019,6 +2105,14 @@
       document.addEventListener("click", async (event) => {
         const target = event.target;
         if (!(target instanceof Element)) return;
+        const editButton = target.closest(".edit-cosmetic-btn");
+        if (editButton) {
+          loadCosmeticIntoForm(
+            editButton.getAttribute("data-entity-type") || "",
+            Number(editButton.getAttribute("data-id") || "0"),
+          );
+          return;
+        }
         const button = target.closest(".delete-row-btn");
         if (!button) return;
 

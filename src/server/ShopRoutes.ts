@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { AuthDatabase } from "./AuthDatabase";
 import { verifyAuthToken } from "./AuthJwt";
-import { normalizeCosmeticKey } from "./LiveContentRoutes";
+import { normalizeCosmeticKey } from "./CosmeticKey";
 
 function parseBearerToken(authHeader: string | string[] | undefined): string | null {
   if (!authHeader) return null;

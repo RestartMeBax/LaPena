@@ -2,6 +2,7 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import { AuthDatabase, AdminMapRecord } from "./AuthDatabase";
+import { normalizeCosmeticKey } from "./CosmeticKey";
 import { setNoStoreHeaders } from "./NoStoreHeaders";
 
 type LiveNewsItem = {
@@ -75,15 +76,6 @@ function readJsonFile<T>(filePath: string): T | null {
   } catch {
     return null;
   }
-}
-
-export function normalizeCosmeticKey(input: string): string {
-  const safe = input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return safe.length > 0 ? safe : "item";
 }
 
 function parseMetadata(raw: string | null): Record<string, unknown> {

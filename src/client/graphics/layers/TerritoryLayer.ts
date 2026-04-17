@@ -43,6 +43,7 @@ export class TerritoryLayer implements Layer {
   }> = new PriorityQueue((a, b) => {
     return a.lastUpdate - b.lastUpdate;
   });
+  private queuedTiles = new Set<TileRef>();
   private random = new PseudoRandom(123);
   private theme: Theme;
 
@@ -622,13 +623,22 @@ export class TerritoryLayer implements Layer {
       numToRender = this.tileToRenderQueue.size();
     }
 
+    const renderBudgetStart = performance.now();
+    const maxTilesPerFrame = this.hasAnyImageSkins ? 700 : 1600;
+    const maxRenderBudgetMs = this.hasAnyImageSkins ? 4 : 7;
+    numToRender = Math.min(numToRender, maxTilesPerFrame);
+
     while (numToRender > 0) {
+      if (performance.now() - renderBudgetStart >= maxRenderBudgetMs) {
+        break;
+      }
       numToRender--;
 
       const entry = this.tileToRenderQueue.pop();
       if (!entry) {
         break;
       }
+      this.queuedTiles.delete(entry.tile);
 
       const tile = entry.tile;
       this.paintTerritory(tile);
@@ -761,6 +771,10 @@ export class TerritoryLayer implements Layer {
   }
 
   enqueueTile(tile: TileRef) {
+    if (this.queuedTiles.has(tile)) {
+      return;
+    }
+    this.queuedTiles.add(tile);
     this.tileToRenderQueue.push({
       tile: tile,
       lastUpdate: this.game.ticks() + this.random.nextFloat(0, 0.5),

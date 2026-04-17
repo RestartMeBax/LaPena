@@ -203,8 +203,17 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     if (!name || !description) {
       return res.status(400).json({ error: "Missing flag name or description" });
     }
-    db.createFlag(name, description, imageUrl);
-    return res.json({ success: true });
+    const result = db.saveFlag(
+      String(name),
+      String(description),
+      typeof imageUrl === "string" ? imageUrl : undefined,
+    );
+    const actor = (req as Request & { adminPayload?: Record<string, unknown> }).adminPayload;
+    const actorEmail = typeof actor?.email === "string" ? actor.email : "unknown";
+    log.info(
+      `Flag ${result.created ? "saved" : "updated"} for ${result.record.name} (id=${result.record.id}) by ${actorEmail}`,
+    );
+    return res.json({ success: true, created: result.created, flag: result.record });
   });
 
   router.patch("/flags/:id", (req, res) => {
@@ -233,6 +242,9 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     if (!deleted) {
       return res.status(404).json({ error: "Flag not found" });
     }
+    const actor = (req as Request & { adminPayload?: Record<string, unknown> }).adminPayload;
+    const actorEmail = typeof actor?.email === "string" ? actor.email : "unknown";
+    log.info(`Flag deleted (id=${id}) by ${actorEmail}`);
     return res.json({ success: true });
   });
 
@@ -245,8 +257,17 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     if (!name || !description) {
       return res.status(400).json({ error: "Missing skin name or description" });
     }
-    db.createSkin(name, description, imageUrl);
-    return res.json({ success: true });
+    const result = db.saveSkin(
+      String(name),
+      String(description),
+      typeof imageUrl === "string" ? imageUrl : undefined,
+    );
+    const actor = (req as Request & { adminPayload?: Record<string, unknown> }).adminPayload;
+    const actorEmail = typeof actor?.email === "string" ? actor.email : "unknown";
+    log.info(
+      `Skin ${result.created ? "saved" : "updated"} for ${result.record.name} (id=${result.record.id}) by ${actorEmail}`,
+    );
+    return res.json({ success: true, created: result.created, skin: result.record });
   });
 
   router.patch("/skins/:id", (req, res) => {
@@ -275,6 +296,9 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     if (!deleted) {
       return res.status(404).json({ error: "Skin not found" });
     }
+    const actor = (req as Request & { adminPayload?: Record<string, unknown> }).adminPayload;
+    const actorEmail = typeof actor?.email === "string" ? actor.email : "unknown";
+    log.info(`Skin deleted (id=${id}) by ${actorEmail}`);
     return res.json({ success: true });
   });
 

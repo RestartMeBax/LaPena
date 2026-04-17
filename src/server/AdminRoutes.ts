@@ -31,9 +31,20 @@ function isAdminPayload(payload: Record<string, unknown>): boolean {
   return roles.includes("admin") || OWNER_ADMIN_EMAILS.has(email);
 }
 
+function isAdminFromDb(
+  payload: Record<string, unknown>,
+  db: AuthDatabase,
+): boolean {
+  const email = typeof payload.email === "string" ? payload.email : "";
+  if (!email) return false;
+  const user = db.findUserByEmail(email);
+  return Boolean(user?.roles?.includes("admin"));
+}
+
 async function requireAdmin(
   req: Request,
   res: Response,
+  db: AuthDatabase,
   next: () => void,
 ): Promise<void> {
   const token = parseBearerToken(req);
@@ -44,7 +55,7 @@ async function requireAdmin(
 
   try {
     const payload = await verifyAuthToken(token, req);
-    if (!isAdminPayload(payload)) {
+    if (!isAdminPayload(payload) && !isAdminFromDb(payload, db)) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -72,7 +83,7 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
         : [];
       const email = typeof payload.email === "string" ? payload.email : "";
       return res.json({
-        isAdmin: isAdminPayload(payload),
+        isAdmin: isAdminPayload(payload) || isAdminFromDb(payload, db),
         email,
         roles,
       });
@@ -81,7 +92,9 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     }
   });
 
-  router.use(requireAdmin);
+  router.use((req, res, next) => {
+    void requireAdmin(req, res, db, next);
+  });
 
   router.get("/admins", (_req, res) => {
     const admins = db.getUsersByRole("admin").map((user) => ({

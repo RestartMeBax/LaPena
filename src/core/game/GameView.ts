@@ -213,6 +213,17 @@ export class PlayerView {
     spanY: number;
   };
   private skinSampleCache = new Map<string, Colord>();
+  private skinBorderVariantCache = new Map<
+    string,
+    {
+      neutral: Colord;
+      friendly: Colord;
+      embargo: Colord;
+      defendedNeutral: { light: Colord; dark: Colord };
+      defendedFriendly: { light: Colord; dark: Colord };
+      defendedEmbargo: { light: Colord; dark: Colord };
+    }
+  >();
   private skinSampleCacheToken = "";
   private static readonly SKIN_TEXTURE_MAX_SIZE = 2048;
   private static readonly SKIN_TEXTURE_MIN_SIZE = 64;
@@ -220,6 +231,12 @@ export class PlayerView {
   private static readonly SKIN_TILE_THRESHOLD = 96;
   private static readonly SKIN_MAX_REPEAT = 6;
   private static readonly SKIN_SAMPLE_CACHE_MAX = 4096;
+
+  private resetSkinCaches() {
+    this.skinSampleCache.clear();
+    this.skinBorderVariantCache.clear();
+    this.skinSampleCacheToken = "";
+  }
 
   private _territoryColor: Colord;
   private _borderColor: Colord;
@@ -374,8 +391,7 @@ export class PlayerView {
           this.imgW = texW;
           this.imgH = texH;
           this.skinTextureRevision++;
-          this.skinSampleCache.clear();
-          this.skinSampleCacheToken = "";
+          this.resetSkinCaches();
         } catch {
           console.warn(
             "Failed to read skin image pixels; falling back to pattern/solid color",
@@ -454,6 +470,7 @@ export class PlayerView {
     if (this.skinSampleCacheToken !== cacheToken) {
       this.skinSampleCacheToken = cacheToken;
       this.skinSampleCache.clear();
+      this.skinBorderVariantCache.clear();
     }
 
     const cacheKey = `${worldX},${worldY}`;
@@ -534,9 +551,48 @@ export class PlayerView {
     });
     if (this.skinSampleCache.size >= PlayerView.SKIN_SAMPLE_CACHE_MAX) {
       this.skinSampleCache.clear();
+      this.skinBorderVariantCache.clear();
     }
     this.skinSampleCache.set(cacheKey, sampled);
     return sampled;
+  }
+
+  private skinBorderVariantsForTile(
+    worldX: number,
+    worldY: number,
+    sampled: Colord,
+  ): {
+    neutral: Colord;
+    friendly: Colord;
+    embargo: Colord;
+    defendedNeutral: { light: Colord; dark: Colord };
+    defendedFriendly: { light: Colord; dark: Colord };
+    defendedEmbargo: { light: Colord; dark: Colord };
+  } {
+    const key = `${worldX},${worldY}`;
+    const cached = this.skinBorderVariantCache.get(key);
+    if (cached) {
+      return cached;
+    }
+
+    const theme = this.game.config().theme();
+    const neutral = theme.borderColor(sampled);
+    const friendly = this.tintBorderColor(neutral, FRIENDLY_TINT_TARGET);
+    const embargo = this.tintBorderColor(neutral, EMBARGO_TINT_TARGET);
+    const variants = {
+      neutral,
+      friendly,
+      embargo,
+      defendedNeutral: theme.defendedBorderColors(neutral),
+      defendedFriendly: theme.defendedBorderColors(friendly),
+      defendedEmbargo: theme.defendedBorderColors(embargo),
+    };
+
+    if (this.skinBorderVariantCache.size >= PlayerView.SKIN_SAMPLE_CACHE_MAX) {
+      this.skinBorderVariantCache.clear();
+    }
+    this.skinBorderVariantCache.set(key, variants);
+    return variants;
   }
 
   territoryColor(tile?: TileRef): Colord {
@@ -600,30 +656,40 @@ export class PlayerView {
     }
 
     const { hasEmbargo, hasFriendly } = this.borderRelationFlags(tile);
-    const neutralColor = this.baseBorderColorForTile(tile);
-    const friendlyColor = this.tintBorderColor(neutralColor, FRIENDLY_TINT_TARGET);
-    const embargoColor = this.tintBorderColor(neutralColor, EMBARGO_TINT_TARGET);
+    const x = this.game.x(tile);
+    const y = this.game.y(tile);
+    const sampled = this.sampleSkinColor(x, y);
 
     let baseColor: Colord;
     let defendedColors: { light: Colord; dark: Colord };
 
-    if (hasEmbargo) {
-      baseColor = embargoColor;
-      defendedColors = this.game.config().theme().defendedBorderColors(baseColor);
+    if (sampled) {
+      const variants = this.skinBorderVariantsForTile(x, y, sampled);
+      if (hasEmbargo) {
+        baseColor = variants.embargo;
+        defendedColors = variants.defendedEmbargo;
+      } else if (hasFriendly) {
+        baseColor = variants.friendly;
+        defendedColors = variants.defendedFriendly;
+      } else {
+        baseColor = variants.neutral;
+        defendedColors = variants.defendedNeutral;
+      }
+    } else if (hasEmbargo) {
+      baseColor = this._borderColorEmbargo;
+      defendedColors = this._borderColorDefendedEmbargo;
     } else if (hasFriendly) {
-      baseColor = friendlyColor;
-      defendedColors = this.game.config().theme().defendedBorderColors(baseColor);
+      baseColor = this._borderColorFriendly;
+      defendedColors = this._borderColorDefendedFriendly;
     } else {
-      baseColor = neutralColor;
-      defendedColors = this.game.config().theme().defendedBorderColors(baseColor);
+      baseColor = this._borderColorNeutral;
+      defendedColors = this._borderColorDefendedNeutral;
     }
 
     if (!isDefended) {
       return baseColor;
     }
 
-    const x = this.game.x(tile);
-    const y = this.game.y(tile);
     const lightTile =
       (x % 2 === 0 && y % 2 === 0) || (y % 2 === 1 && x % 2 === 1);
     return lightTile ? defendedColors.light : defendedColors.dark;

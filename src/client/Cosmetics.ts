@@ -239,11 +239,23 @@ export function patternRelationship(
     userMeResponse === false ? [] : (userMeResponse.player.flares ?? []);
 
   if (colorPalette === null) {
-    // For backwards compatibility only show non-colored patterns if they are owned.
+    // Base pattern (no palette suffix). Keep this purchasable for items that
+    // only have the internal admin_default palette.
     if (hasOwnedPatternFlare(flares, pattern.name, null)) {
       return "owned";
     }
-    return "blocked";
+    return cosmeticRelationship(
+      {
+        wildcardFlare: "pattern:*",
+        requiredFlare: `pattern:${pattern.name}`,
+        product: pattern.product,
+        priceSoft: pattern.priceSoft,
+        priceHard: pattern.priceHard,
+        affiliateCode,
+        itemAffiliateCode: pattern.affiliateCode,
+      },
+      userMeResponse,
+    );
   }
 
   if (colorPalette.isArchived) {
@@ -323,13 +335,11 @@ export function resolveCosmetics(
 
   // Patterns × color palettes
   for (const [patternKey, pattern] of Object.entries(cosmetics.patterns)) {
-    // If color palettes exist, expose only palette variants.
-    // Keeping a separate null/base entry creates duplicate-looking skins
-    // (e.g. pattern:key and pattern:key:admin_default).
-    const hasPalettes = (pattern.colorPalettes?.length ?? 0) > 0;
-    const colorPalettes = hasPalettes
-      ? [...(pattern.colorPalettes ?? [])]
-      : [null];
+    // Hide the internal admin_default palette from UI options.
+    // If that's the only palette, show a single base entry instead.
+    const rawPalettes = [...(pattern.colorPalettes ?? [])];
+    const visiblePalettes = rawPalettes.filter((cp) => cp.name !== "admin_default");
+    const colorPalettes = visiblePalettes.length > 0 ? visiblePalettes : [null];
     for (const cp of colorPalettes) {
       const rel = patternRelationship(
         pattern,

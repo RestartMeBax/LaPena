@@ -150,7 +150,7 @@ function buildBaseCosmetics(): LiveCosmetics {
   };
 }
 
-function mergeAdminCosmetics(db: AuthDatabase): LiveCosmetics {
+export function mergeAdminCosmetics(db: AuthDatabase): LiveCosmetics {
   const merged = buildBaseCosmetics();
   merged.colorPalettes ??= {};
   merged.patterns ??= {};

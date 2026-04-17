@@ -26,7 +26,7 @@ import { getUserMe, verifyClientToken } from "./jwt";
 import { registerAuthRoutes } from "./AuthRoutes";
 import { registerAdminRoutes } from "./AdminRoutes";
 import { AuthDatabase } from "./AuthDatabase";
-import { registerLiveContentRoutes } from "./LiveContentRoutes";
+import { registerLiveContentRoutes, mergeAdminCosmetics } from "./LiveContentRoutes";
 import { registerImageProxyRoutes } from "./ImageProxyRoutes";
 import { registerShopRoutes } from "./ShopRoutes";
 import { logger } from "./Logger";
@@ -103,6 +103,8 @@ export async function startWorker() {
     config.jwtIssuer() + "/profane_words_game_server",
     config.apiKey(),
     log,
+    undefined,
+    () => mergeAdminCosmetics(authDb),
   );
   privilegeRefresher.start();
 

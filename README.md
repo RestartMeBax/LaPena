@@ -94,6 +94,14 @@ To run just the server with development settings:
 npm run start:server-dev
 ```
 
+### Persistent auth/cosmetics data
+
+Admin-managed users, skins, flags, uploaded images, and shop items are stored in a SQLite database.
+
+Set `AUTH_DB_DIR` to a persistent directory in production. If `AUTH_DB_DIR` is not set, the server uses `/usr/src/app/data`.
+
+On Render, mount a persistent disk and set `AUTH_DB_DIR` to that mount path, otherwise cosmetics and uploaded images will disappear after a redeploy or instance replacement.
+
 ### Connecting to staging or production backends
 
 Sometimes it's useful to connect to production servers when replaying a game, testing user profiles, purchases, or login flow.

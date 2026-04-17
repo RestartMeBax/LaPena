@@ -225,6 +225,13 @@ export class PlayerView {
     }
   >();
   private skinSampleCacheToken = "";
+  private borderRelationCacheTick = -1;
+  private borderRelationCache = new Map<
+    TileRef,
+    { hasEmbargo: boolean; hasFriendly: boolean }
+  >();
+  private borderColorCacheTick = -1;
+  private borderColorCache = new Map<string, Colord>();
   private static readonly SKIN_TEXTURE_MAX_SIZE = 2048;
   private static readonly SKIN_TEXTURE_MIN_SIZE = 64;
   private static readonly SKIN_TERRITORY_SPAN_PADDING = 1.2;
@@ -235,6 +242,7 @@ export class PlayerView {
   private resetSkinCaches() {
     this.skinSampleCache.clear();
     this.skinBorderVariantCache.clear();
+    this.borderColorCache.clear();
     this.skinSampleCacheToken = "";
   }
 
@@ -471,6 +479,7 @@ export class PlayerView {
       this.skinSampleCacheToken = cacheToken;
       this.skinSampleCache.clear();
       this.skinBorderVariantCache.clear();
+      this.borderColorCache.clear();
     }
 
     const cacheKey = `${worldX},${worldY}`;
@@ -552,6 +561,7 @@ export class PlayerView {
     if (this.skinSampleCache.size >= PlayerView.SKIN_SAMPLE_CACHE_MAX) {
       this.skinSampleCache.clear();
       this.skinBorderVariantCache.clear();
+      this.borderColorCache.clear();
     }
     this.skinSampleCache.set(cacheKey, sampled);
     return sampled;
@@ -628,19 +638,6 @@ export class PlayerView {
     });
   }
 
-  private baseBorderColorForTile(tile?: TileRef): Colord {
-    if (tile === undefined) {
-      return this._borderColor;
-    }
-
-    const sampled = this.sampleSkinColor(this.game.x(tile), this.game.y(tile));
-    if (!sampled) {
-      return this._borderColor;
-    }
-
-    return this.game.config().theme().borderColor(sampled);
-  }
-
   structureColors(): { light: Colord; dark: Colord } {
     return this._structureColors;
   }
@@ -653,6 +650,18 @@ export class PlayerView {
   borderColor(tile?: TileRef, isDefended: boolean = false): Colord {
     if (tile === undefined) {
       return this._borderColor;
+    }
+
+    const currentTick = this.game.ticks();
+    if (this.borderColorCacheTick !== currentTick) {
+      this.borderColorCacheTick = currentTick;
+      this.borderColorCache.clear();
+    }
+
+    const borderCacheKey = `${tile}:${isDefended ? 1 : 0}`;
+    const cachedColor = this.borderColorCache.get(borderCacheKey);
+    if (cachedColor) {
+      return cachedColor;
     }
 
     const { hasEmbargo, hasFriendly } = this.borderRelationFlags(tile);
@@ -686,13 +695,17 @@ export class PlayerView {
       defendedColors = this._borderColorDefendedNeutral;
     }
 
+    let result: Colord;
     if (!isDefended) {
-      return baseColor;
+      result = baseColor;
+    } else {
+      const lightTile =
+      (x % 2 === 0 && y % 2 === 0) || (y % 2 === 1 && x % 2 === 1);
+      result = lightTile ? defendedColors.light : defendedColors.dark;
     }
 
-    const lightTile =
-      (x % 2 === 0 && y % 2 === 0) || (y % 2 === 1 && x % 2 === 1);
-    return lightTile ? defendedColors.light : defendedColors.dark;
+    this.borderColorCache.set(borderCacheKey, result);
+    return result;
   }
 
   /**
@@ -702,6 +715,17 @@ export class PlayerView {
     hasEmbargo: boolean;
     hasFriendly: boolean;
   } {
+    const currentTick = this.game.ticks();
+    if (this.borderRelationCacheTick !== currentTick) {
+      this.borderRelationCacheTick = currentTick;
+      this.borderRelationCache.clear();
+    }
+
+    const cached = this.borderRelationCache.get(tile);
+    if (cached) {
+      return cached;
+    }
+
     const mySmallID = this.smallID();
     let hasEmbargo = false;
     let hasFriendly = false;
@@ -725,7 +749,9 @@ export class PlayerView {
         hasFriendly = true;
       }
     }
-    return { hasEmbargo, hasFriendly };
+    const result = { hasEmbargo, hasFriendly };
+    this.borderRelationCache.set(tile, result);
+    return result;
   }
 
   async actions(

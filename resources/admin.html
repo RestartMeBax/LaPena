@@ -337,6 +337,28 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .quick-actions {
+        display: grid;
+        gap: 14px;
+      }
+
+      .quick-action-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .ghost-btn {
+        color: var(--ink);
+        background: color-mix(in srgb, var(--surface-3) 92%, transparent);
+        box-shadow: none;
+        border: 1px solid var(--line);
+      }
+
+      .ghost-btn:hover {
+        border-color: var(--line-strong);
+      }
+
       .form-panel,
       .table-panel {
         display: grid;
@@ -352,6 +374,13 @@
       .stack {
         display: grid;
         gap: 8px;
+      }
+
+      .form-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
       }
 
       .field-note {
@@ -498,6 +527,7 @@
       @media (max-width: 1100px) {
         .hero-grid,
         .stats-grid,
+        .quick-action-grid,
         .panel-grid.two,
         .subgrid.two {
           grid-template-columns: 1fr;
@@ -609,6 +639,23 @@
               <p>Purchasable or free items exposed in store UI.</p>
             </div>
           </div>
+
+          <section class="quick-actions">
+            <div class="section-header">
+              <div class="section-copy">
+                <span class="eyebrow">Common tasks</span>
+                <h3>Jump Straight To What You Need</h3>
+                <p>One click to the right form, with the first input focused.</p>
+              </div>
+            </div>
+            <div class="quick-action-grid">
+              <button type="button" class="ghost-btn jump-btn" data-target="mediaSection" data-focus="flagName">New Flag</button>
+              <button type="button" class="ghost-btn jump-btn" data-target="mediaSection" data-focus="skinName">New Skin</button>
+              <button type="button" class="ghost-btn jump-btn" data-target="newsSection" data-focus="newsTitle">New News</button>
+              <button type="button" class="ghost-btn jump-btn" data-target="mapsSection" data-focus="mapKey">New Map</button>
+              <button type="button" class="ghost-btn jump-btn" data-target="shopSection" data-focus="shopType">New Shop Item</button>
+            </div>
+          </section>
         </section>
 
         <section id="mediaSection" class="section-anchor card section-card">
@@ -636,7 +683,10 @@
                   <span id="flagImageFile_status" class="field-note"></span>
                 </div>
               </div>
-              <button id="addFlag">Add Flag</button>
+              <div class="form-actions">
+                <button id="addFlag">Add Flag</button>
+                <button id="clearFlagForm" type="button" class="ghost-btn">Clear</button>
+              </div>
             </article>
 
             <article class="form-panel">
@@ -655,7 +705,10 @@
                   <span id="skinImageFile_status" class="field-note"></span>
                 </div>
               </div>
-              <button id="addSkin">Add Skin</button>
+              <div class="form-actions">
+                <button id="addSkin">Add Skin</button>
+                <button id="clearSkinForm" type="button" class="ghost-btn">Clear</button>
+              </div>
             </article>
           </div>
         </section>
@@ -676,7 +729,10 @@
             <article class="form-panel">
               <div class="field"><label>Target URL</label><input id="newsUrl" placeholder="https://..." /></div>
               <div class="field"><label>Image URL</label><input id="newsImageUrl" placeholder="https://..." /></div>
-              <button id="addNews">Add News</button>
+              <div class="form-actions">
+                <button id="addNews">Add News</button>
+                <button id="clearNewsForm" type="button" class="ghost-btn">Clear</button>
+              </div>
             </article>
           </div>
         </section>
@@ -706,7 +762,10 @@
                 <label>Enabled</label>
                 <select id="mapEnabled"><option value="true">Yes</option><option value="false">No</option></select>
               </div>
-              <button id="addMap">Add Map Entry</button>
+              <div class="form-actions">
+                <button id="addMap">Add Map Entry</button>
+                <button id="clearMapForm" type="button" class="ghost-btn">Clear</button>
+              </div>
             </article>
           </div>
         </section>
@@ -748,6 +807,7 @@
               </div>
               <div class="action-row" style="justify-content:flex-start">
                 <button id="shopAutoKey" type="button">Auto Key From Title</button>
+                <button id="prefillShopKnown" type="button" class="ghost-btn">Prefill From Existing</button>
               </div>
             </article>
 
@@ -776,9 +836,10 @@
                 </div>
               </div>
               <div class="field"><label>Metadata JSON</label><textarea id="shopMetadata" placeholder='{"imageUrl":"..."}'></textarea></div>
-              <div class="action-row" style="justify-content:flex-start">
+              <div class="form-actions">
                 <button id="shopInjectImage" type="button">Inject Image Into Metadata</button>
                 <button id="upsertShop">Save Shop Item</button>
+                <button id="clearShopForm" type="button" class="ghost-btn">Clear</button>
               </div>
             </article>
           </div>
@@ -1095,6 +1156,90 @@
         setCount("newsCount", newsCount);
         setCount("mapsCount", knownMaps.length);
         setCount("shopCount", knownShopItems.length);
+      }
+
+      function focusSection(sectionId, focusId) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+          section.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        if (focusId) {
+          window.setTimeout(() => {
+            const el = document.getElementById(focusId);
+            if (el && typeof el.focus === "function") {
+              el.focus();
+            }
+          }, 140);
+        }
+      }
+
+      function clearFields(fieldIds, defaults = {}) {
+        fieldIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          const fallback = Object.prototype.hasOwnProperty.call(defaults, id)
+            ? defaults[id]
+            : "";
+          el.value = fallback;
+        });
+      }
+
+      function clearFlagForm() {
+        clearFields(["flagName", "flagDescription", "flagImageUrl"]);
+        document.getElementById("flagImageFile_status").textContent = "";
+      }
+
+      function clearSkinForm() {
+        clearFields(["skinName", "skinDescription", "skinImageUrl"]);
+        document.getElementById("skinImageFile_status").textContent = "";
+      }
+
+      function clearNewsForm() {
+        clearFields(["newsTitle", "newsDescription", "newsUrl", "newsImageUrl"]);
+      }
+
+      function clearMapForm() {
+        clearFields(["mapKey", "mapName", "mapDescription", "mapImageUrl", "mapUrl"], {
+          mapEnabled: "true",
+        });
+        document.getElementById("mapEnabled").value = "true";
+      }
+
+      function clearShopForm() {
+        clearFields(
+          [
+            "shopType",
+            "shopKey",
+            "shopTitle",
+            "shopDescription",
+            "shopSoftPrice",
+            "shopHardPrice",
+            "shopImageUrl",
+            "shopMetadata",
+          ],
+          {
+            shopEnabled: "true",
+          },
+        );
+        document.getElementById("shopEnabled").value = "true";
+        document.getElementById("shopImageFile_status").textContent = "";
+        setShopKeyOptions();
+        syncShopTypeVisuals();
+      }
+
+      function requireFields(pairs) {
+        for (const [fieldId, label] of pairs) {
+          const el = document.getElementById(fieldId);
+          const value = (el?.value || "").trim();
+          if (!value) {
+            setStatus(`${label} is required.`, false);
+            if (el && typeof el.focus === "function") {
+              el.focus();
+            }
+            return false;
+          }
+        }
+        return true;
       }
 
       async function uploadAndUpdate(endpointBase, id, fileInputId) {
@@ -1554,10 +1699,11 @@
         });
         if (!response.ok) {
           setStatus(response.body.error || "Save failed", false);
-          return;
+          return false;
         }
         setStatus(successText);
         await loadAllLists();
+        return true;
       }
 
       async function deleteEntity(path, label) {
@@ -1585,7 +1731,10 @@
       });
 
       document.getElementById("addFlag").addEventListener("click", async () => {
-        await createEntity(
+        if (!requireFields([["flagName", "Flag name"], ["flagDescription", "Flag description"]])) {
+          return;
+        }
+        const success = await createEntity(
           "/api/admin/flags",
           {
             name: document.getElementById("flagName").value.trim(),
@@ -1594,10 +1743,17 @@
           },
           "Flag created.",
         );
+        if (success) {
+          clearFlagForm();
+          document.getElementById("flagName").focus();
+        }
       });
 
       document.getElementById("addSkin").addEventListener("click", async () => {
-        await createEntity(
+        if (!requireFields([["skinName", "Skin name"], ["skinDescription", "Skin description"]])) {
+          return;
+        }
+        const success = await createEntity(
           "/api/admin/skins",
           {
             name: document.getElementById("skinName").value.trim(),
@@ -1606,10 +1762,17 @@
           },
           "Skin created.",
         );
+        if (success) {
+          clearSkinForm();
+          document.getElementById("skinName").focus();
+        }
       });
 
       document.getElementById("addNews").addEventListener("click", async () => {
-        await createEntity(
+        if (!requireFields([["newsTitle", "News title"], ["newsDescription", "News description"]])) {
+          return;
+        }
+        const success = await createEntity(
           "/api/admin/news",
           {
             title: document.getElementById("newsTitle").value.trim(),
@@ -1619,10 +1782,17 @@
           },
           "News entry created.",
         );
+        if (success) {
+          clearNewsForm();
+          document.getElementById("newsTitle").focus();
+        }
       });
 
       document.getElementById("addMap").addEventListener("click", async () => {
-        await createEntity(
+        if (!requireFields([["mapKey", "Map key"], ["mapName", "Map name"]])) {
+          return;
+        }
+        const success = await createEntity(
           "/api/admin/maps",
           {
             key: document.getElementById("mapKey").value.trim(),
@@ -1634,6 +1804,10 @@
           },
           "Map entry created.",
         );
+        if (success) {
+          clearMapForm();
+          document.getElementById("mapKey").focus();
+        }
       });
 
       document.getElementById("mapKey").addEventListener("change", () => {
@@ -1670,6 +1844,10 @@
         autoFillShopKeyFromTitle();
       });
 
+      document.getElementById("prefillShopKnown").addEventListener("click", () => {
+        prefillShopIfKnown();
+      });
+
       document.getElementById("shopInjectImage").addEventListener("click", () => {
         injectImageIntoMetadata();
       });
@@ -1684,6 +1862,18 @@
         input.value = "";
         applyTableFilter("");
       });
+
+      document.querySelectorAll(".jump-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          focusSection(button.getAttribute("data-target"), button.getAttribute("data-focus"));
+        });
+      });
+
+      document.getElementById("clearFlagForm").addEventListener("click", clearFlagForm);
+      document.getElementById("clearSkinForm").addEventListener("click", clearSkinForm);
+      document.getElementById("clearNewsForm").addEventListener("click", clearNewsForm);
+      document.getElementById("clearMapForm").addEventListener("click", clearMapForm);
+      document.getElementById("clearShopForm").addEventListener("click", clearShopForm);
 
       document.addEventListener("click", async (event) => {
         const target = event.target;
@@ -1710,7 +1900,11 @@
           }
         }
 
-        await createEntity(
+        if (!requireFields([["shopType", "Item type"], ["shopKey", "Item key"], ["shopTitle", "Item title"]])) {
+          return;
+        }
+
+        const success = await createEntity(
           "/api/admin/shop-items",
           {
             itemType: document.getElementById("shopType").value.trim(),
@@ -1730,6 +1924,10 @@
           },
           "Shop item saved.",
         );
+        if (success) {
+          clearShopForm();
+          document.getElementById("shopType").focus();
+        }
       });
 
       (async () => {

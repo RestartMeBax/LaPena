@@ -212,11 +212,14 @@ export class PlayerView {
     spanX: number;
     spanY: number;
   };
+  private skinSampleCache = new Map<string, Colord>();
+  private skinSampleCacheToken = "";
   private static readonly SKIN_TEXTURE_MAX_SIZE = 2048;
   private static readonly SKIN_TEXTURE_MIN_SIZE = 64;
   private static readonly SKIN_TERRITORY_SPAN_PADDING = 1.2;
   private static readonly SKIN_TILE_THRESHOLD = 96;
   private static readonly SKIN_MAX_REPEAT = 6;
+  private static readonly SKIN_SAMPLE_CACHE_MAX = 4096;
 
   private _territoryColor: Colord;
   private _borderColor: Colord;
@@ -371,6 +374,8 @@ export class PlayerView {
           this.imgW = texW;
           this.imgH = texH;
           this.skinTextureRevision++;
+          this.skinSampleCache.clear();
+          this.skinSampleCacheToken = "";
         } catch {
           console.warn(
             "Failed to read skin image pixels; falling back to pattern/solid color",
@@ -441,6 +446,21 @@ export class PlayerView {
     // For very small uploads, repeat (tile) the image so it doesn't become one
     // over-stretched blurry patch over large territories.
     const projection = this.skinProjection();
+    const tilesOwned = Math.max(0, this.numTilesOwned());
+    const cacheToken =
+      `${this.skinTextureRevision}:${tilesOwned}:` +
+      `${projection.centerX}:${projection.centerY}:` +
+      `${projection.spanX.toFixed(3)}:${projection.spanY.toFixed(3)}`;
+    if (this.skinSampleCacheToken !== cacheToken) {
+      this.skinSampleCacheToken = cacheToken;
+      this.skinSampleCache.clear();
+    }
+
+    const cacheKey = `${worldX},${worldY}`;
+    const cached = this.skinSampleCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     const u = (worldX - projection.centerX) / projection.spanX + 0.5;
     const v = (worldY - projection.centerY) / projection.spanY + 0.5;
@@ -507,11 +527,16 @@ export class PlayerView {
 
     const c = bilinear(fx, fy);
 
-    return colord({
+    const sampled = colord({
       r: Math.round(c.r),
       g: Math.round(c.g),
       b: Math.round(c.b),
     });
+    if (this.skinSampleCache.size >= PlayerView.SKIN_SAMPLE_CACHE_MAX) {
+      this.skinSampleCache.clear();
+    }
+    this.skinSampleCache.set(cacheKey, sampled);
+    return sampled;
   }
 
   territoryColor(tile?: TileRef): Colord {

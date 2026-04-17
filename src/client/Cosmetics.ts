@@ -451,6 +451,7 @@ export async function getPlayerCosmeticsRefs(): Promise<PlayerCosmeticRefs> {
   if (flag?.startsWith("flag:")) {
     const key = flag.slice("flag:".length);
     const flagData = cosmetics?.flags?.[key];
+    const isFreeFlag = flagData?.priceSoft === 0 && flagData?.product === null;
     if (!flagData) {
       // Only clear if cosmetics loaded successfully but the key is missing
       if (cosmetics) {
@@ -463,7 +464,7 @@ export async function getPlayerCosmeticsRefs(): Promise<PlayerCosmeticRefs> {
       } else {
         const flares = userMe.player.flares ?? [];
         const hasWildcard = flares.includes("flag:*");
-        if (!hasWildcard && !flares.includes(`flag:${flagData.name}`)) {
+        if (!isFreeFlag && !hasWildcard && !flares.includes(`flag:${flagData.name}`)) {
           flag = null;
         }
       }

@@ -250,6 +250,11 @@ export class PrivilegeCheckerImpl implements PrivilegeChecker {
       const found = this.cosmetics.flags[key];
       if (!found) throw new Error(`Flag ${key} not found`);
 
+      // Free flags (priceSoft=0, no product) are universally allowed.
+      if (found.priceSoft === 0 && found.product === null) {
+        return found.url;
+      }
+
       if (flares.includes("flag:*") || flares.includes(`flag:${found.name}`)) {
         return found.url;
       }

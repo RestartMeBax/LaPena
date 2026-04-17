@@ -216,6 +216,9 @@ export class PlayerView {
   private static readonly SKIN_TEXTURE_MIN_SIZE = 64;
   private static readonly SKIN_TERRITORY_SPAN_PADDING = 1.2;
   private static readonly SKIN_TILE_THRESHOLD = 96;
+  private static readonly SKIN_MAX_REPEAT = 6;
+  private static readonly SKIN_SEAM_WIDTH = 0.06;
+  private static readonly SKIN_SEAM_DARKEN = 0.24;
 
   private _territoryColor: Colord;
   private _borderColor: Colord;
@@ -448,8 +451,28 @@ export class PlayerView {
       this.imgW < PlayerView.SKIN_TILE_THRESHOLD ||
       this.imgH < PlayerView.SKIN_TILE_THRESHOLD;
     const wrap01 = (value: number) => ((value % 1) + 1) % 1;
-    const ux = shouldTileSmallTexture ? wrap01(u) : Math.max(0, Math.min(1, u));
-    const vy = shouldTileSmallTexture ? wrap01(v) : Math.max(0, Math.min(1, v));
+
+    const repeatX = shouldTileSmallTexture
+      ? Math.min(
+          PlayerView.SKIN_MAX_REPEAT,
+          Math.max(2, Math.ceil(PlayerView.SKIN_TILE_THRESHOLD / this.imgW)),
+        )
+      : 1;
+    const repeatY = shouldTileSmallTexture
+      ? Math.min(
+          PlayerView.SKIN_MAX_REPEAT,
+          Math.max(2, Math.ceil(PlayerView.SKIN_TILE_THRESHOLD / this.imgH)),
+        )
+      : 1;
+
+    const tiledU = shouldTileSmallTexture ? u * repeatX : u;
+    const tiledV = shouldTileSmallTexture ? v * repeatY : v;
+    const ux = shouldTileSmallTexture
+      ? wrap01(tiledU)
+      : Math.max(0, Math.min(1, tiledU));
+    const vy = shouldTileSmallTexture
+      ? wrap01(tiledV)
+      : Math.max(0, Math.min(1, tiledV));
 
     const fx = ux * (this.imgW - 1);
     const fy = vy * (this.imgH - 1);
@@ -485,6 +508,24 @@ export class PlayerView {
     };
 
     const c = bilinear(fx, fy);
+
+    if (shouldTileSmallTexture) {
+      const frac = (value: number) => value - Math.floor(value);
+      const seamDist = (f: number) => Math.min(f, 1 - f);
+      const seamX = seamDist(frac(tiledU));
+      const seamY = seamDist(frac(tiledV));
+      const seam = Math.min(seamX, seamY);
+
+      if (seam < PlayerView.SKIN_SEAM_WIDTH) {
+        const t = (PlayerView.SKIN_SEAM_WIDTH - seam) / PlayerView.SKIN_SEAM_WIDTH;
+        const darken = t * PlayerView.SKIN_SEAM_DARKEN;
+        return colord({
+          r: Math.max(0, Math.round(c.r * (1 - darken))),
+          g: Math.max(0, Math.round(c.g * (1 - darken))),
+          b: Math.max(0, Math.round(c.b * (1 - darken))),
+        });
+      }
+    }
 
     return colord({
       r: Math.round(c.r),

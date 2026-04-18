@@ -2088,17 +2088,367 @@
         return [files.manifest, files.mapBin, files.map4x, files.map16x].filter(Boolean).length;
       }
 
+      function createTileData(width, height) {
+        const size = width * height;
+        return {
+          width,
+          height,
+          land: new Uint8Array(size),
+          shoreline: new Uint8Array(size),
+          ocean: new Uint8Array(size),
+          magnitude: new Float32Array(size),
+        };
+      }
+
+      function tileIndex(width, x, y) {
+        return y * width + x;
+      }
+
+      function buildTileDataFromGeneratedImage(generated) {
+        const width = generated.width - (generated.width % 4);
+        const height = generated.height - (generated.height % 4);
+        if (width < 4 || height < 4) {
+          throw new Error("Generated map is too small. Use an image at least 4x4.");
+        }
+
+        const tileData = createTileData(width, height);
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const px = (y * generated.width + x) * 4;
+            const blue = generated.data[px + 2];
+            const idx = tileIndex(width, x, y);
+
+            if (blue <= 40) {
+              tileData.land[idx] = 0;
+              tileData.magnitude[idx] = 0;
+            } else if (blue <= 100) {
+              tileData.land[idx] = 1;
+              tileData.magnitude[idx] = 6;
+            } else if (blue <= 140) {
+              tileData.land[idx] = 1;
+              tileData.magnitude[idx] = 14;
+            } else {
+              tileData.land[idx] = 1;
+              tileData.magnitude[idx] = 24;
+            }
+          }
+        }
+        return tileData;
+      }
+
+      function connectedWaterComponent(tileData, startIdx, visited) {
+        const { width, height, land } = tileData;
+        const queue = [startIdx];
+        const component = [];
+        visited[startIdx] = 1;
+        let head = 0;
+
+        while (head < queue.length) {
+          const current = queue[head++];
+          component.push(current);
+          const x = current % width;
+          const y = Math.floor(current / width);
+
+          if (x > 0) {
+            const left = current - 1;
+            if (!visited[left] && !land[left]) {
+              visited[left] = 1;
+              queue.push(left);
+            }
+          }
+          if (x < width - 1) {
+            const right = current + 1;
+            if (!visited[right] && !land[right]) {
+              visited[right] = 1;
+              queue.push(right);
+            }
+          }
+          if (y > 0) {
+            const up = current - width;
+            if (!visited[up] && !land[up]) {
+              visited[up] = 1;
+              queue.push(up);
+            }
+          }
+          if (y < height - 1) {
+            const down = current + width;
+            if (!visited[down] && !land[down]) {
+              visited[down] = 1;
+              queue.push(down);
+            }
+          }
+        }
+
+        return component;
+      }
+
+      function processWaterAndShoreline(tileData) {
+        const { width, height, land, shoreline, ocean, magnitude } = tileData;
+        shoreline.fill(0);
+        ocean.fill(0);
+
+        const visitedWater = new Uint8Array(width * height);
+        let largestComponent = [];
+
+        for (let idx = 0; idx < width * height; idx++) {
+          if (land[idx] || visitedWater[idx]) {
+            continue;
+          }
+          const component = connectedWaterComponent(tileData, idx, visitedWater);
+          if (component.length > largestComponent.length) {
+            largestComponent = component;
+          }
+        }
+
+        for (const idx of largestComponent) {
+          ocean[idx] = 1;
+        }
+
+        const shorelineWaterQueue = [];
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const idx = tileIndex(width, x, y);
+            let hasOppositeNeighbor = false;
+            const isLandTile = Boolean(land[idx]);
+
+            if (x > 0 && Boolean(land[idx - 1]) !== isLandTile) hasOppositeNeighbor = true;
+            if (!hasOppositeNeighbor && x < width - 1 && Boolean(land[idx + 1]) !== isLandTile) hasOppositeNeighbor = true;
+            if (!hasOppositeNeighbor && y > 0 && Boolean(land[idx - width]) !== isLandTile) hasOppositeNeighbor = true;
+            if (!hasOppositeNeighbor && y < height - 1 && Boolean(land[idx + width]) !== isLandTile) hasOppositeNeighbor = true;
+
+            if (hasOppositeNeighbor) {
+              shoreline[idx] = 1;
+              if (!isLandTile) {
+                magnitude[idx] = 0;
+                shorelineWaterQueue.push(idx);
+              }
+            }
+          }
+        }
+
+        const waterDistanceVisited = new Uint8Array(width * height);
+        for (const idx of shorelineWaterQueue) {
+          waterDistanceVisited[idx] = 1;
+        }
+
+        const queue = [...shorelineWaterQueue];
+        let head = 0;
+        while (head < queue.length) {
+          const current = queue[head++];
+          const currentDistance = magnitude[current];
+          const x = current % width;
+          const y = Math.floor(current / width);
+
+          if (x > 0) {
+            const left = current - 1;
+            if (!land[left] && !waterDistanceVisited[left]) {
+              waterDistanceVisited[left] = 1;
+              magnitude[left] = currentDistance + 1;
+              queue.push(left);
+            }
+          }
+          if (x < width - 1) {
+            const right = current + 1;
+            if (!land[right] && !waterDistanceVisited[right]) {
+              waterDistanceVisited[right] = 1;
+              magnitude[right] = currentDistance + 1;
+              queue.push(right);
+            }
+          }
+          if (y > 0) {
+            const up = current - width;
+            if (!land[up] && !waterDistanceVisited[up]) {
+              waterDistanceVisited[up] = 1;
+              magnitude[up] = currentDistance + 1;
+              queue.push(up);
+            }
+          }
+          if (y < height - 1) {
+            const down = current + width;
+            if (!land[down] && !waterDistanceVisited[down]) {
+              waterDistanceVisited[down] = 1;
+              magnitude[down] = currentDistance + 1;
+              queue.push(down);
+            }
+          }
+        }
+      }
+
+      function createMiniTileData(source) {
+        const width = Math.floor(source.width / 2);
+        const height = Math.floor(source.height / 2);
+        const mini = createTileData(width, height);
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            const sx = x * 2;
+            const sy = y * 2;
+            const s0 = tileIndex(source.width, sx, sy);
+            const s1 = tileIndex(source.width, sx + 1, sy);
+            const s2 = tileIndex(source.width, sx, sy + 1);
+            const s3 = tileIndex(source.width, sx + 1, sy + 1);
+            const dst = tileIndex(width, x, y);
+
+            const hasWater =
+              !source.land[s0] || !source.land[s1] || !source.land[s2] || !source.land[s3];
+
+            if (hasWater) {
+              mini.land[dst] = 0;
+              mini.magnitude[dst] = 0;
+            } else {
+              mini.land[dst] = 1;
+              mini.magnitude[dst] = Math.max(
+                source.magnitude[s0],
+                source.magnitude[s1],
+                source.magnitude[s2],
+                source.magnitude[s3],
+              );
+            }
+          }
+        }
+
+        processWaterAndShoreline(mini);
+        return mini;
+      }
+
+      function packTileData(tileData) {
+        const { width, height, land, shoreline, ocean, magnitude } = tileData;
+        const packed = new Uint8Array(width * height);
+        let numLandTiles = 0;
+
+        for (let idx = 0; idx < packed.length; idx++) {
+          let byte = 0;
+          if (land[idx]) {
+            byte |= 0b10000000;
+            numLandTiles++;
+          }
+          if (shoreline[idx]) {
+            byte |= 0b01000000;
+          }
+          if (ocean[idx]) {
+            byte |= 0b00100000;
+          }
+          const mag = land[idx]
+            ? Math.min(Math.ceil(magnitude[idx]), 31)
+            : Math.min(Math.ceil(magnitude[idx] / 2), 31);
+          byte |= mag;
+          packed[idx] = byte;
+        }
+
+        return {
+          bytes: packed,
+          width,
+          height,
+          numLandTiles,
+        };
+      }
+
+      function generateMapBundleFromImageTool() {
+        const generated = generateMapGeneratorOutput();
+        if (!generated) {
+          return null;
+        }
+
+        const key = slugify(document.getElementById("mapKey").value.trim());
+        const enteredName = document.getElementById("mapName").value.trim();
+        const mapName = enteredName || titleFromMapKey(key) || key || "Custom Map";
+
+        const full = buildTileDataFromGeneratedImage(generated);
+        processWaterAndShoreline(full);
+        const mini4 = createMiniTileData(full);
+        const mini16 = createMiniTileData(mini4);
+
+        const map = packTileData(full);
+        const map4x = packTileData(mini4);
+        const map16x = packTileData(mini16);
+
+        const manifest = {
+          name: mapName,
+          nations: [],
+          map: {
+            width: map.width,
+            height: map.height,
+            num_land_tiles: map.numLandTiles,
+          },
+          map4x: {
+            width: map4x.width,
+            height: map4x.height,
+            num_land_tiles: map4x.numLandTiles,
+          },
+          map16x: {
+            width: map16x.width,
+            height: map16x.height,
+            num_land_tiles: map16x.numLandTiles,
+          },
+        };
+
+        return {
+          manifestJson: JSON.stringify(manifest, null, 2),
+          mapBinBase64: bytesToBase64(map.bytes),
+          map4xBinBase64: bytesToBase64(map4x.bytes),
+          map16xBinBase64: bytesToBase64(map16x.bytes),
+        };
+      }
+
+      async function uploadMapBundlePayload(key, payload) {
+        const response = await requestJson("/api/admin/maps/upload-files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key,
+            manifestJson: payload.manifestJson,
+            mapBinBase64: payload.mapBinBase64,
+            map4xBinBase64: payload.map4xBinBase64,
+            map16xBinBase64: payload.map16xBinBase64,
+          }),
+        });
+
+        if (!response.ok || !response.body?.success) {
+          setStatus(response.body?.error || "Could not upload map files.", false);
+          return false;
+        }
+
+        const uploadedMapUrl = String(response.body.mapUrl || defaultMapDataUrlFromKey(key));
+        if (uploadedMapUrl) {
+          document.getElementById("mapUrl").value = uploadedMapUrl;
+          document.getElementById("mapGeneratorDataUrl").value = uploadedMapUrl;
+        }
+        invalidateMapValidation();
+        setStatus(`Uploaded required map files to ${uploadedMapUrl}.`);
+        return true;
+      }
+
       async function uploadSelectedMapBundle(options = {}) {
         const {
           requireAll = false,
           silentWhenEmpty = false,
+          autoGenerateFromImageTool = false,
         } = options;
 
         const files = getSelectedMapBundleFiles();
         const selectedCount = countSelectedMapBundleFiles(files);
         if (selectedCount === 0) {
+          if (autoGenerateFromImageTool) {
+            const generatedPayload = generateMapBundleFromImageTool();
+            if (generatedPayload) {
+              const keyRaw = document.getElementById("mapKey").value.trim();
+              const key = slugify(keyRaw);
+              if (!key) {
+                setStatus("Map key is required before generating map files.", false);
+                document.getElementById("mapKey").focus();
+                return false;
+              }
+              if (keyRaw !== key) {
+                document.getElementById("mapKey").value = key;
+              }
+              setStatus("Generating and uploading required map files...");
+              return uploadMapBundlePayload(key, generatedPayload);
+            }
+          }
+
           if (!silentWhenEmpty && requireAll) {
-            setStatus("Select manifest.json, map.bin, map4x.bin and map16x.bin first.", false);
+            setStatus("Select map files or use Image To Map source so files can be generated automatically.", false);
           }
           return null;
         }
@@ -2127,31 +2477,12 @@
             fileToArrayBuffer(files.map16x),
           ]);
 
-          const response = await requestJson("/api/admin/maps/upload-files", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              key,
-              manifestJson,
-              mapBinBase64: bytesToBase64(new Uint8Array(mapBinBuffer)),
-              map4xBinBase64: bytesToBase64(new Uint8Array(map4xBuffer)),
-              map16xBinBase64: bytesToBase64(new Uint8Array(map16xBuffer)),
-            }),
+          return uploadMapBundlePayload(key, {
+            manifestJson,
+            mapBinBase64: bytesToBase64(new Uint8Array(mapBinBuffer)),
+            map4xBinBase64: bytesToBase64(new Uint8Array(map4xBuffer)),
+            map16xBinBase64: bytesToBase64(new Uint8Array(map16xBuffer)),
           });
-
-          if (!response.ok || !response.body?.success) {
-            setStatus(response.body?.error || "Could not upload map files.", false);
-            return false;
-          }
-
-          const uploadedMapUrl = String(response.body.mapUrl || defaultMapDataUrlFromKey(key));
-          if (uploadedMapUrl) {
-            document.getElementById("mapUrl").value = uploadedMapUrl;
-            document.getElementById("mapGeneratorDataUrl").value = uploadedMapUrl;
-          }
-          invalidateMapValidation();
-          setStatus(`Uploaded required map files to ${uploadedMapUrl}.`);
-          return true;
         } catch (error) {
           setStatus(error?.message || "Failed to upload required map files.", false);
           return false;
@@ -2549,7 +2880,10 @@
       document.getElementById("uploadMapFiles").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         await setButtonBusy(button, "Uploading...", async () => {
-          await uploadSelectedMapBundle({ requireAll: true });
+          await uploadSelectedMapBundle({
+            requireAll: true,
+            autoGenerateFromImageTool: true,
+          });
         });
       });
 
@@ -2694,7 +3028,10 @@
             return;
           }
 
-          const uploaded = await uploadSelectedMapBundle({ silentWhenEmpty: true });
+          const uploaded = await uploadSelectedMapBundle({
+            silentWhenEmpty: true,
+            autoGenerateFromImageTool: true,
+          });
           if (uploaded === false) {
             return;
           }
@@ -2725,7 +3062,10 @@
         if (!applied) {
           return;
         }
-        const uploaded = await uploadSelectedMapBundle({ silentWhenEmpty: true });
+        const uploaded = await uploadSelectedMapBundle({
+          silentWhenEmpty: true,
+          autoGenerateFromImageTool: true,
+        });
         if (uploaded === false) {
           return;
         }

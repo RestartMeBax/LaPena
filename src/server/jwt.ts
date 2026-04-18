@@ -22,14 +22,16 @@ export async function verifyClientToken(
   config: ServerConfig,
 ): Promise<TokenVerificationResult> {
   if (PersistentIdSchema.safeParse(token).success) {
-    if (config.env() === GameEnv.Dev) {
-      return { type: "success", persistentId: token, claims: null };
-    } else {
+    // Anonymous joins use persistent IDs instead of JWTs.
+    // Keep them blocked only when access is explicitly flare-restricted.
+    if (config.allowedFlares() !== undefined) {
       return {
         type: "error",
-        message: "persistent ID not allowed in production",
+        message: "persistent ID not allowed when flare-restricted access is enabled",
       };
     }
+
+    return { type: "success", persistentId: token, claims: null };
   }
   // Try HS256 first — the built-in AuthRoutes signs tokens with HS256.
   try {

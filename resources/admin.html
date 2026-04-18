@@ -750,12 +750,18 @@
             <article class="form-panel">
               <div class="section-copy">
                 <h3>Image To Map</h3>
-                <p>Simple version of your script. Upload an image, tune the three thresholds, then download the generated <strong>image.png</strong> for the Go map generator.</p>
+                <p>Simple version of your script. Upload an image, tune the three thresholds, then use the guided fields below to fill map entry data automatically.</p>
               </div>
               <div class="field">
                 <label>Source Image</label>
                 <input id="mapGeneratorFile" type="file" accept="image/*" />
               </div>
+              <div class="subgrid two">
+                <div class="field"><label>Map Key</label><input id="mapGeneratorKey" placeholder="custom_world_1" /></div>
+                <div class="field"><label>Map Name</label><input id="mapGeneratorName" placeholder="Custom World 1" /></div>
+              </div>
+              <div class="field"><label>Map Data URL (generated map folder)</label><input id="mapGeneratorDataUrl" placeholder="https://cdn.example.com/maps/custom_world_1" /></div>
+              <div class="field"><label>Description (optional)</label><input id="mapGeneratorDescription" placeholder="Generated from heightmap" /></div>
               <div class="field">
                 <label>Water <= <span id="mapGeneratorWaterVal">0.40</span></label>
                 <input id="mapGeneratorWater" type="range" min="0" max="1" step="0.01" value="0.40" />
@@ -774,12 +780,14 @@
               <div class="form-actions">
                 <button id="mapGeneratorDownload" type="button">Download image.png</button>
                 <button id="mapGeneratorUploadPreview" type="button" class="ghost-btn">Use As Preview Image</button>
+                <button id="mapGeneratorApplyToMap" type="button" class="ghost-btn">Fill Map Entry Form</button>
+                <button id="mapGeneratorCreateMap" type="button">Create Map Entry Now</button>
               </div>
             </article>
             <article class="form-panel">
               <div id="mapGeneratorPreviewWrap" class="canvas-frame">
                 <canvas id="mapGeneratorPreview" width="600" height="360" style="display:block;width:100%;height:auto;border:1px solid rgba(61,78,59,0.18);border-radius:12px;background:#0d1320;image-rendering:pixelated"></canvas>
-                <p class="field-note">This generates the terrain PNG input for <code>map-generator/assets/maps/&lt;map_name&gt;/image.png</code>. After that, run the Go generator to produce manifest and bin files, then put that output folder URL into Map Data URL.</p>
+                <p class="field-note">This generates the terrain PNG input for <code>map-generator/assets/maps/&lt;map_name&gt;/image.png</code>. Then run Go map-generator and set Map Data URL to the output folder containing <code>manifest.json</code> and <code>map.bin</code>. Use <strong>Fill Map Entry Form</strong> so you do not need to type fields twice.</p>
               </div>
             </article>
           </div>
@@ -814,7 +822,7 @@
             <div class="section-copy">
               <span class="eyebrow">Maps</span>
               <h2>Create Map Entry</h2>
-              <p>Picker support works best when the map key matches an existing enum key or value such as World, Europe, or NorthAmerica.</p>
+              <p>Use this only if you want to edit manually. For the easier flow, fill fields in Image To Map and click <strong>Fill Map Entry Form</strong> or <strong>Create Map Entry Now</strong>.</p>
             </div>
           </div>
           <div class="panel-grid two">
@@ -1512,6 +1520,7 @@
           data: imageData.data,
           fileName: file.name || "image.png",
         };
+        prefillMapGeneratorFieldsFromSource();
         renderMapGeneratorPreview();
       }
 
@@ -1531,6 +1540,91 @@
           0,
         );
         return canvas.toDataURL("image/png");
+      }
+
+      function mapGeneratorKeyFromFileName(fileName) {
+        const base = String(fileName || "")
+          .replace(/\.[^.]+$/, "")
+          .trim();
+        const key = slugify(base);
+        return key || "custom_world_1";
+      }
+
+      function titleFromMapKey(key) {
+        const cleaned = String(key || "")
+          .trim()
+          .replace(/[_-]+/g, " ")
+          .replace(/\s+/g, " ");
+        if (!cleaned) return "";
+        return cleaned
+          .split(" ")
+          .filter(Boolean)
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
+      }
+
+      function prefillMapGeneratorFieldsFromSource() {
+        if (!mapGeneratorSource) {
+          return;
+        }
+        const keyEl = document.getElementById("mapGeneratorKey");
+        const nameEl = document.getElementById("mapGeneratorName");
+        const descEl = document.getElementById("mapGeneratorDescription");
+
+        if (!keyEl.value.trim()) {
+          keyEl.value = mapGeneratorKeyFromFileName(mapGeneratorSource.fileName || "");
+        }
+
+        if (!nameEl.value.trim()) {
+          nameEl.value = titleFromMapKey(keyEl.value);
+        }
+
+        if (!descEl.value.trim()) {
+          descEl.value = "Generated from image-to-map tool";
+        }
+      }
+
+      function applyGeneratorFieldsToMapForm() {
+        const key = document.getElementById("mapGeneratorKey").value.trim();
+        const fallbackName = titleFromMapKey(key);
+        const name = document.getElementById("mapGeneratorName").value.trim() || fallbackName;
+        const description = document.getElementById("mapGeneratorDescription").value.trim();
+        const mapUrl = document.getElementById("mapGeneratorDataUrl").value.trim();
+
+        if (!key || !name || !mapUrl) {
+          setStatus("Map Key, Map Name, and Map Data URL are required in Image To Map.", false);
+          return false;
+        }
+
+        document.getElementById("mapKey").value = key;
+        document.getElementById("mapName").value = name;
+        document.getElementById("mapDescription").value = description;
+        document.getElementById("mapUrl").value = mapUrl;
+        return true;
+      }
+
+      async function uploadGeneratedMapPreviewImage() {
+        const dataUrl = exportMapGeneratorPng();
+        if (!dataUrl) {
+          return null;
+        }
+        const response = await fetch("/api/admin/upload-image", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({
+            data: dataUrl,
+            contentType: "image/png",
+            filename: "generated-map-preview.png",
+          }),
+        });
+        const body = await response.json();
+        if (!response.ok) {
+          throw new Error(body.error || "Upload failed");
+        }
+        return body.url || "";
       }
 
       function normalizeMapKey(value) {
@@ -2258,33 +2352,52 @@
       });
 
       document.getElementById("mapGeneratorUploadPreview").addEventListener("click", async () => {
-        const dataUrl = exportMapGeneratorPng();
-        if (!dataUrl) {
-          return;
-        }
         try {
           setStatus("Uploading generated preview…");
-          const response = await fetch("/api/admin/upload-image", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${jwt}`,
-            },
-            body: JSON.stringify({
-              data: dataUrl,
-              contentType: "image/png",
-              filename: "generated-map-preview.png",
-            }),
-          });
-          const body = await response.json();
-          if (!response.ok) {
-            setStatus(body.error || "Upload failed", false);
+          const imageUrl = await uploadGeneratedMapPreviewImage();
+          if (!imageUrl) {
             return;
           }
-          document.getElementById("mapImageUrl").value = body.url;
+          document.getElementById("mapImageUrl").value = imageUrl;
           setStatus("Generated map preview uploaded and inserted into Preview Image URL.");
         } catch (error) {
-          setStatus("Upload failed.", false);
+          setStatus(error?.message || "Upload failed.", false);
+        }
+      });
+
+      document.getElementById("mapGeneratorApplyToMap").addEventListener("click", () => {
+        const applied = applyGeneratorFieldsToMapForm();
+        if (!applied) {
+          return;
+        }
+        focusSection("mapsSection", "mapKey");
+        setStatus("Map form filled from Image To Map values.");
+      });
+
+      document.getElementById("mapGeneratorCreateMap").addEventListener("click", async () => {
+        const applied = applyGeneratorFieldsToMapForm();
+        if (!applied) {
+          return;
+        }
+
+        try {
+          setStatus("Uploading generated preview and creating map entry…");
+          const imageUrl = await uploadGeneratedMapPreviewImage();
+          if (imageUrl) {
+            document.getElementById("mapImageUrl").value = imageUrl;
+          }
+        } catch (error) {
+          setStatus((error?.message || "Preview upload failed") + " You can still save map entry manually.", false);
+          return;
+        }
+
+        document.getElementById("addMap").click();
+      });
+
+      document.getElementById("mapGeneratorKey").addEventListener("change", () => {
+        const nameEl = document.getElementById("mapGeneratorName");
+        if (!nameEl.value.trim()) {
+          nameEl.value = titleFromMapKey(document.getElementById("mapGeneratorKey").value);
         }
       });
 

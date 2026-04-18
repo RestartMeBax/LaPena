@@ -56,11 +56,35 @@ function normalizeMapBaseUrl(rawMapUrl: string, req: Request): string {
 }
 
 async function checkUrlReachable(url: string): Promise<globalThis.Response> {
-  const head = await fetch(url, { method: "HEAD" });
+  const head = await fetchWithTimeout(url, { method: "HEAD" }, 8000);
   if (head.status !== 405) {
     return head;
   }
-  return fetch(url, { method: "GET" });
+  return fetchWithTimeout(url, { method: "GET" }, 8000);
+}
+
+function isAbortError(error: unknown): boolean {
+  return !!error && typeof error === "object" && "name" in error && (error as { name?: string }).name === "AbortError";
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<globalThis.Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function validateMapDataUrl(
@@ -72,10 +96,17 @@ async function validateMapDataUrl(
 
   let manifestResponse: globalThis.Response;
   try {
-    manifestResponse = await fetch(manifestUrl, {
+    manifestResponse = await fetchWithTimeout(manifestUrl, {
       headers: { Accept: "application/json" },
-    });
-  } catch {
+    }, 10000);
+  } catch (error) {
+    if (isAbortError(error)) {
+      return {
+        ok: false,
+        manifestUrl,
+        error: `Timed out while reaching manifest URL: ${manifestUrl}`,
+      };
+    }
     return {
       ok: false,
       manifestUrl,
@@ -141,11 +172,27 @@ async function validateMapDataUrl(
     map16xBin: `${normalizedBaseUrl}/map16x.bin`,
   };
 
-  const binaryChecks = await Promise.all([
-    checkUrlReachable(files.mapBin),
-    checkUrlReachable(files.map4xBin),
-    checkUrlReachable(files.map16xBin),
-  ]);
+  let binaryChecks: globalThis.Response[];
+  try {
+    binaryChecks = await Promise.all([
+      checkUrlReachable(files.mapBin),
+      checkUrlReachable(files.map4xBin),
+      checkUrlReachable(files.map16xBin),
+    ]);
+  } catch (error) {
+    if (isAbortError(error)) {
+      return {
+        ok: false,
+        manifestUrl,
+        error: "Timed out while checking required map binary files.",
+      };
+    }
+    return {
+      ok: false,
+      manifestUrl,
+      error: "Could not validate one or more required map binary files.",
+    };
+  }
 
   if (!binaryChecks[0].ok) {
     return {

@@ -1129,23 +1129,58 @@
       }
 
       async function requestJson(path, options = {}) {
+        const timeoutMs =
+          typeof options.timeoutMs === "number" && options.timeoutMs > 0
+            ? options.timeoutMs
+            : 0;
+        const fetchOptions = { ...options };
+        delete fetchOptions.timeoutMs;
+
         const headers = { ...(options.headers || {}) };
         if (jwt) {
           headers.Authorization = `Bearer ${jwt}`;
         }
 
-        const response = await fetch(path, {
-          ...options,
-          headers,
-          credentials: "include",
-        });
-        let body = {};
+        const controller = new AbortController();
+        const timeoutId =
+          timeoutMs > 0
+            ? window.setTimeout(() => {
+                controller.abort();
+              }, timeoutMs)
+            : null;
+
         try {
-          body = await response.json();
-        } catch {
-          body = {};
+          const response = await fetch(path, {
+            ...fetchOptions,
+            headers,
+            credentials: "include",
+            signal: controller.signal,
+          });
+          let body = {};
+          try {
+            body = await response.json();
+          } catch {
+            body = {};
+          }
+          return { ok: response.ok, status: response.status, body };
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            return {
+              ok: false,
+              status: 0,
+              body: { error: "Request timed out. Please try again." },
+            };
+          }
+          return {
+            ok: false,
+            status: 0,
+            body: { error: error?.message || "Network request failed." },
+          };
+        } finally {
+          if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+          }
         }
-        return { ok: response.ok, status: response.status, body };
       }
 
       async function ensureAdminAccess() {
@@ -1768,6 +1803,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ mapUrl: normalized }),
+          timeoutMs: 20000,
         });
 
         if (!response.ok || !response.body?.ok) {

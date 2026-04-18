@@ -436,13 +436,31 @@ export class HostLobbyModal extends BaseModal {
 
   protected onOpen(): void {
     this.startLobbyUpdates();
-    this.lobbyId = generateID();
-    // Note: clientID will be assigned by server when we join the lobby
-    // lobbyCreatorClientID stays empty until then
+    // Note: clientID will be assigned by server when we join the lobby.
+    // lobbyCreatorClientID stays empty until then.
+    void this.initializeLobby().catch((error) => {
+      console.error("Failed to initialize host lobby", error);
+      this.showMapStartError(
+        "Failed to create lobby. Please try again in a few seconds.",
+      );
+      this.leaveLobbyOnClose = true;
+    });
+    if (this.modalEl) {
+      this.modalEl.onClose = () => {
+        this.close();
+      };
+    }
+    this.loadNationCount();
+  }
 
-    // Pass auth token for creator identification (server extracts persistentID from it)
-    createLobby(this.lobbyId)
-      .then(async (lobby) => {
+  private async initializeLobby(): Promise<void> {
+    const maxAttempts = 3;
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      this.lobbyId = generateID();
+      try {
+        const lobby = await createLobby(this.lobbyId);
         this.lobbyId = lobby.gameID;
         if (!isValidGameID(this.lobbyId)) {
           throw new Error(`Invalid lobby ID format: ${this.lobbyId}`);
@@ -450,8 +468,7 @@ export class HostLobbyModal extends BaseModal {
         crazyGamesSDK.showInviteButton(this.lobbyId);
         const url = await this.constructUrl();
         this.updateHistory(url);
-      })
-      .then(() => {
+
         this.dispatchEvent(
           new CustomEvent("join-lobby", {
             detail: {
@@ -462,13 +479,19 @@ export class HostLobbyModal extends BaseModal {
             composed: true,
           }),
         );
-      });
-    if (this.modalEl) {
-      this.modalEl.onClose = () => {
-        this.close();
-      };
+        return;
+      } catch (error) {
+        lastError = error;
+        console.warn("Host lobby creation attempt failed", {
+          attempt,
+          maxAttempts,
+          lobbyId: this.lobbyId,
+          error,
+        });
+      }
     }
-    this.loadNationCount();
+
+    throw lastError ?? new Error("Failed to create lobby");
   }
 
   private leaveLobby() {

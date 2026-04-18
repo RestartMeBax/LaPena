@@ -19,6 +19,7 @@ import {
   isValidGameID,
 } from "../core/Schemas";
 import { generateID } from "../core/Util";
+import { getPublicAdminMaps } from "./Api";
 import { getPlayToken } from "./Auth";
 import "./components/baseComponents/Modal";
 import { BaseModal } from "./components/BaseModal";
@@ -992,6 +993,11 @@ export class HostLobbyModal extends BaseModal {
   }
 
   private async startGame() {
+    const mapValidated = await this.validateSelectedMapBeforeStart();
+    if (!mapValidated) {
+      return;
+    }
+
     await this.putGameConfig();
     console.log(
       `Starting private game with map: ${this.selectedMap} ${this.useRandomMap ? " (Randomly selected)" : ""}`,
@@ -1015,6 +1021,78 @@ export class HostLobbyModal extends BaseModal {
       this.leaveLobbyOnClose = true;
     }
     return response;
+  }
+
+  private isBuiltInMapValue(map: string): map is GameMapType {
+    return Object.values(GameMapType).includes(map as GameMapType);
+  }
+
+  private async resolveValidatedMapSelection(
+    selectedMap: string,
+  ): Promise<string | null> {
+    if (this.isBuiltInMapValue(selectedMap)) {
+      return selectedMap;
+    }
+
+    try {
+      const publicMaps = await getPublicAdminMaps();
+      const customMap = publicMaps.find(
+        (m) =>
+          m.enabled &&
+          m.key === selectedMap &&
+          typeof m.mapUrl === "string" &&
+          m.mapUrl.trim().length > 0,
+      );
+      if (customMap) {
+        return selectedMap;
+      }
+    } catch {
+      // Handled by caller with a user-facing message.
+    }
+
+    return null;
+  }
+
+  private showMapStartError(message: string): void {
+    window.dispatchEvent(
+      new CustomEvent("show-message", {
+        detail: {
+          message,
+          color: "red",
+          duration: 4500,
+        },
+      }),
+    );
+  }
+
+  private async validateSelectedMapBeforeStart(): Promise<boolean> {
+    const validatedMap = await this.resolveValidatedMapSelection(this.selectedMap);
+    if (validatedMap === null) {
+      console.warn("Blocked game start: invalid selected map", {
+        selectedMap: this.selectedMap,
+      });
+      this.showMapStartError(
+        "Selected map is invalid or unavailable. Please pick another map.",
+      );
+      return false;
+    }
+
+    this.selectedMap = validatedMap;
+
+    try {
+      const mapData = this.mapLoader.getMapData(validatedMap);
+      await mapData.manifest();
+      return true;
+    } catch (error) {
+      console.warn("Blocked game start: map manifest failed to load", {
+        selectedMap: validatedMap,
+        error,
+      });
+      this.showMapStartError(
+        "This map failed to load. Please choose a different map.",
+      );
+      return false;
+    }
   }
 
   private kickPlayer(clientID: string) {

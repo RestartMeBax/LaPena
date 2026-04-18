@@ -75,6 +75,15 @@ export class MapPicker extends LitElement {
     return Object.values(GameMapType).includes(map as GameMapType);
   }
 
+  private isCosmeticLikeKey(key: string): boolean {
+    const normalized = key.trim().toLowerCase();
+    return (
+      normalized.startsWith("skin_") ||
+      normalized.startsWith("flag_") ||
+      normalized.startsWith("pattern_")
+    );
+  }
+
   private renderMapCard(mapValue: GameMapType) {
     const mapKey = Object.entries(GameMapType).find(
       ([_, value]) => value === mapValue,
@@ -117,7 +126,12 @@ export class MapPicker extends LitElement {
 
   private renderLiveMaps() {
     const maps = this.liveMaps
-      .filter((m) => m.enabled && this.resolveMapValue(m.key) !== null)
+      .filter(
+        (m) =>
+          m.enabled &&
+          !this.isCosmeticLikeKey(m.key) &&
+          this.resolveMapValue(m.key) !== null,
+      )
       .map((m) => this.resolveMapValue(m.key))
       .filter((m): m is GameMapType => m !== null);
 
@@ -163,7 +177,11 @@ export class MapPicker extends LitElement {
 
   private renderCustomMaps() {
     const maps = this.liveMaps.filter(
-      (m) => m.enabled && Boolean(m.mapUrl) && this.resolveMapValue(m.key) === null,
+      (m) =>
+        m.enabled &&
+        !this.isCosmeticLikeKey(m.key) &&
+        Boolean(m.mapUrl) &&
+        this.resolveMapValue(m.key) === null,
     );
 
     if (maps.length === 0) {

@@ -33,7 +33,7 @@ export interface Nation {
 }
 
 export async function loadTerrainMap(
-  map: GameMapType,
+  map: GameMapType | string,
   mapSize: GameMapSize,
   terrainMapFileLoader: GameMapLoader,
 ): Promise<TerrainMapData> {

@@ -213,7 +213,7 @@ const TeamCountConfigSchema = z.union([
 export type TeamCountConfig = z.infer<typeof TeamCountConfigSchema>;
 
 export const GameConfigSchema = z.object({
-  gameMap: z.enum(GameMapType),
+  gameMap: z.string().min(1),
   difficulty: z.enum(Difficulty),
   donateGold: z.boolean(), // Configures donations to humans only
   donateTroops: z.boolean(), // Configures donations to humans only
@@ -577,7 +577,7 @@ export const ServerPingMessageSchema = z.object({
 
 export const ServerPrestartMessageSchema = z.object({
   type: z.literal("prestart"),
-  gameMap: z.enum(GameMapType),
+  gameMap: z.string().min(1),
   gameMapSize: z.enum(GameMapSize),
 });
 

@@ -746,6 +746,43 @@
               </div>
             </article>
           </div>
+          <div class="panel-grid two" style="margin-top:18px">
+            <article class="form-panel">
+              <div class="section-copy">
+                <h3>Image To Map</h3>
+                <p>Simple version of your script. Upload an image, tune the three thresholds, then download the generated <strong>image.png</strong> for the Go map generator.</p>
+              </div>
+              <div class="field">
+                <label>Source Image</label>
+                <input id="mapGeneratorFile" type="file" accept="image/*" />
+              </div>
+              <div class="field">
+                <label>Water <= <span id="mapGeneratorWaterVal">0.40</span></label>
+                <input id="mapGeneratorWater" type="range" min="0" max="1" step="0.01" value="0.40" />
+              </div>
+              <div class="field">
+                <label>Plain <= <span id="mapGeneratorPlainVal">0.72</span></label>
+                <input id="mapGeneratorPlain" type="range" min="0" max="1" step="0.01" value="0.72" />
+              </div>
+              <div class="field">
+                <label>Highland <= <span id="mapGeneratorHighlandVal">0.85</span></label>
+                <input id="mapGeneratorHighland" type="range" min="0" max="1" step="0.01" value="0.85" />
+              </div>
+              <div class="field">
+                <label><input id="mapGeneratorInvert" type="checkbox" /> Invert Brightness</label>
+              </div>
+              <div class="form-actions">
+                <button id="mapGeneratorDownload" type="button">Download image.png</button>
+                <button id="mapGeneratorUploadPreview" type="button" class="ghost-btn">Use As Preview Image</button>
+              </div>
+            </article>
+            <article class="form-panel">
+              <div id="mapGeneratorPreviewWrap" class="canvas-frame">
+                <canvas id="mapGeneratorPreview" width="600" height="360" style="display:block;width:100%;height:auto;border:1px solid rgba(61,78,59,0.18);border-radius:12px;background:#0d1320;image-rendering:pixelated"></canvas>
+                <p class="field-note">This generates the terrain PNG input for <code>map-generator/assets/maps/&lt;map_name&gt;/image.png</code>. After that, run the Go generator to produce manifest and bin files, then put that output folder URL into Map Data URL.</p>
+              </div>
+            </article>
+          </div>
         </section>
 
         <section id="newsSection" class="section-anchor card section-card">
@@ -962,6 +999,7 @@
       let knownShopItems = [];
       let knownAdmins = [];
       let currentTableFilter = "";
+      let mapGeneratorSource = null;
 
       const THEME_STORAGE_KEY = "admin_theme_v1";
       const AUTH_JWT_KEY = "auth_jwt";
@@ -1357,6 +1395,142 @@
 
       function formatJson(value) {
         return JSON.stringify(value, null, 2);
+      }
+
+      function drawMapGeneratorPlaceholder(message) {
+        const canvas = document.getElementById("mapGeneratorPreview");
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#0d1320";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#9fb0c8";
+        ctx.font = "16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+      }
+
+      function readMapGeneratorThresholds() {
+        const water = Number(document.getElementById("mapGeneratorWater").value || "0.4");
+        const plain = Math.max(water, Number(document.getElementById("mapGeneratorPlain").value || "0.72"));
+        const highland = Math.max(plain, Number(document.getElementById("mapGeneratorHighland").value || "0.85"));
+
+        document.getElementById("mapGeneratorPlain").value = plain.toFixed(2);
+        document.getElementById("mapGeneratorHighland").value = highland.toFixed(2);
+        document.getElementById("mapGeneratorWaterVal").textContent = water.toFixed(2);
+        document.getElementById("mapGeneratorPlainVal").textContent = plain.toFixed(2);
+        document.getElementById("mapGeneratorHighlandVal").textContent = highland.toFixed(2);
+
+        return {
+          water,
+          plain,
+          highland,
+          invert: document.getElementById("mapGeneratorInvert").checked,
+        };
+      }
+
+      function generateMapGeneratorOutput() {
+        if (!mapGeneratorSource) {
+          return null;
+        }
+
+        const { width, height, data } = mapGeneratorSource;
+        const thresholds = readMapGeneratorThresholds();
+        const output = new Uint8ClampedArray(width * height * 4);
+
+        for (let i = 0; i < data.length; i += 4) {
+          let brightness = (data[i] + data[i + 1] + data[i + 2]) / (3 * 255);
+          if (thresholds.invert) {
+            brightness = 1 - brightness;
+          }
+
+          let color;
+          if (brightness <= thresholds.water) {
+            color = [18, 15, 34];
+          } else if (brightness <= thresholds.plain) {
+            color = [140, 170, 88];
+          } else if (brightness <= thresholds.highland) {
+            color = [176, 159, 114];
+          } else {
+            color = [190, 190, 190];
+          }
+
+          output[i] = color[0];
+          output[i + 1] = color[1];
+          output[i + 2] = color[2];
+          output[i + 3] = 255;
+        }
+
+        return { width, height, data: output };
+      }
+
+      function renderMapGeneratorPreview() {
+        const canvas = document.getElementById("mapGeneratorPreview");
+        const ctx = canvas.getContext("2d");
+        const generated = generateMapGeneratorOutput();
+        if (!generated) {
+          drawMapGeneratorPlaceholder("Upload a source image to generate a map preview.");
+          return;
+        }
+
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = generated.width;
+        tempCanvas.height = generated.height;
+        tempCanvas.getContext("2d").putImageData(
+          new ImageData(generated.data, generated.width, generated.height),
+          0,
+          0,
+        );
+
+        ctx.fillStyle = "#0d1320";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const scale = Math.min(canvas.width / generated.width, canvas.height / generated.height);
+        const drawWidth = Math.max(1, Math.floor(generated.width * scale));
+        const drawHeight = Math.max(1, Math.floor(generated.height * scale));
+        const dx = Math.floor((canvas.width - drawWidth) / 2);
+        const dy = Math.floor((canvas.height - drawHeight) / 2);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(tempCanvas, dx, dy, drawWidth, drawHeight);
+      }
+
+      async function loadMapGeneratorSource(file) {
+        const dataUrl = await fileToBase64(file);
+        const image = new Image();
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = dataUrl;
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0);
+        const imageData = ctx.getImageData(0, 0, image.width, image.height);
+        mapGeneratorSource = {
+          width: image.width,
+          height: image.height,
+          data: imageData.data,
+          fileName: file.name || "image.png",
+        };
+        renderMapGeneratorPreview();
+      }
+
+      function exportMapGeneratorPng() {
+        const generated = generateMapGeneratorOutput();
+        if (!generated) {
+          setStatus("Upload a source image first.", false);
+          return null;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = generated.width;
+        canvas.height = generated.height;
+        canvas.getContext("2d").putImageData(
+          new ImageData(generated.data, generated.width, generated.height),
+          0,
+          0,
+        );
+        return canvas.toDataURL("image/png");
       }
 
       function normalizeMapKey(value) {
@@ -2045,6 +2219,74 @@
       document.getElementById("clearNewsForm").addEventListener("click", clearNewsForm);
       document.getElementById("clearMapForm").addEventListener("click", clearMapForm);
       document.getElementById("clearShopForm").addEventListener("click", clearShopForm);
+      drawMapGeneratorPlaceholder("Upload a source image to generate a map preview.");
+
+      document.getElementById("mapGeneratorFile").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+          return;
+        }
+        try {
+          await loadMapGeneratorSource(file);
+          setStatus(`Loaded ${file.name}.`);
+        } catch {
+          setStatus("Could not load that image.", false);
+        }
+      });
+
+      ["mapGeneratorWater", "mapGeneratorPlain", "mapGeneratorHighland", "mapGeneratorInvert"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => {
+          renderMapGeneratorPreview();
+        });
+        document.getElementById(id).addEventListener("change", () => {
+          renderMapGeneratorPreview();
+        });
+      });
+
+      document.getElementById("mapGeneratorDownload").addEventListener("click", () => {
+        const dataUrl = exportMapGeneratorPng();
+        if (!dataUrl) {
+          return;
+        }
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = "image.png";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setStatus("Downloaded image.png for map-generator.");
+      });
+
+      document.getElementById("mapGeneratorUploadPreview").addEventListener("click", async () => {
+        const dataUrl = exportMapGeneratorPng();
+        if (!dataUrl) {
+          return;
+        }
+        try {
+          setStatus("Uploading generated preview…");
+          const response = await fetch("/api/admin/upload-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({
+              data: dataUrl,
+              contentType: "image/png",
+              filename: "generated-map-preview.png",
+            }),
+          });
+          const body = await response.json();
+          if (!response.ok) {
+            setStatus(body.error || "Upload failed", false);
+            return;
+          }
+          document.getElementById("mapImageUrl").value = body.url;
+          setStatus("Generated map preview uploaded and inserted into Preview Image URL.");
+        } catch (error) {
+          setStatus("Upload failed.", false);
+        }
+      });
 
       document.getElementById("grantAdminBtn").addEventListener("click", async () => {
         const emailInput = document.getElementById("adminGrantEmail");

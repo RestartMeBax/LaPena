@@ -23,15 +23,16 @@ const featuredMaps: GameMapType[] = [
 
 @customElement("map-picker")
 export class MapPicker extends LitElement {
-  @property({ type: String }) selectedMap: GameMapType = GameMapType.World;
+  @property({ type: String }) selectedMap: string = GameMapType.World;
   @property({ type: Boolean }) useRandomMap = false;
   @property({ type: Boolean }) showMedals = false;
   @property({ type: Boolean }) randomMapDivider = false;
   @property({ attribute: false }) mapWins: Map<GameMapType, Set<Difficulty>> =
     new Map();
-  @property({ attribute: false }) onSelectMap?: (map: GameMapType) => void;
+  @property({ attribute: false }) onSelectMap?: (map: string) => void;
   @property({ attribute: false }) onSelectRandom?: () => void;
   @state() private showAllMaps = false;
+  @state() private showCustomMaps = false;
   @state() private liveMaps: PublicAdminMap[] = [];
 
   createRenderRoot() {
@@ -54,7 +55,7 @@ export class MapPicker extends LitElement {
     return byValue ?? null;
   }
 
-  private handleMapSelection(mapValue: GameMapType) {
+  private handleMapSelection(mapValue: string) {
     this.onSelectMap?.(mapValue);
   }
 
@@ -68,6 +69,10 @@ export class MapPicker extends LitElement {
 
   private getWins(mapValue: GameMapType): Set<Difficulty> {
     return this.mapWins?.get(mapValue) ?? new Set();
+  }
+
+  private isBuiltInMap(map: string): map is GameMapType {
+    return Object.values(GameMapType).includes(map as GameMapType);
   }
 
   private renderMapCard(mapValue: GameMapType) {
@@ -112,7 +117,7 @@ export class MapPicker extends LitElement {
 
   private renderLiveMaps() {
     const maps = this.liveMaps
-      .filter((m) => m.enabled)
+      .filter((m) => m.enabled && this.resolveMapValue(m.key) !== null)
       .map((m) => this.resolveMapValue(m.key))
       .filter((m): m is GameMapType => m !== null);
 
@@ -129,9 +134,61 @@ export class MapPicker extends LitElement {
     </div>`;
   }
 
+  private renderCustomMapCard(map: PublicAdminMap) {
+    const selected = !this.useRandomMap && this.selectedMap === map.key;
+    const imageUrl = map.imageUrl || randomMap;
+    return html`
+      <button
+        type="button"
+        class="w-full h-full p-3 flex flex-col items-center justify-between rounded-xl border cursor-pointer transition-all duration-200 active:scale-95 gap-3 group ${selected
+          ? "bg-blue-500/20 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+          : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 hover:-translate-y-1"}"
+        @click=${() => this.handleMapSelection(map.key)}
+      >
+        <div class="w-full aspect-[2/1] relative overflow-hidden rounded-lg bg-black/20">
+          <img
+            src=${imageUrl}
+            alt=${map.name || map.key}
+            draggable="false"
+            @dragstart=${this.preventImageDrag}
+            class="w-full h-full object-cover ${selected ? "opacity-100" : "opacity-80"} group-hover:opacity-100 transition-opacity duration-200"
+          />
+        </div>
+        <div class="text-xs font-bold text-white uppercase tracking-wider text-center leading-tight break-words hyphens-auto">
+          ${map.name || map.key}
+        </div>
+      </button>
+    `;
+  }
+
+  private renderCustomMaps() {
+    const maps = this.liveMaps.filter(
+      (m) => m.enabled && Boolean(m.mapUrl) && this.resolveMapValue(m.key) === null,
+    );
+
+    if (maps.length === 0) {
+      return html`<div class="w-full rounded-xl border border-white/10 bg-black/20 p-5 text-sm text-white/60">
+        No custom maps added yet.
+      </div>`;
+    }
+
+    return html`<div class="w-full">
+      <h4 class="text-xs font-bold text-white/40 uppercase tracking-widest mb-4 pl-2">
+        Custom Maps
+      </h4>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        ${maps.map((map) => this.renderCustomMapCard(map))}
+      </div>
+    </div>`;
+  }
+
   private renderFeaturedMaps() {
     let featuredMapList = featuredMaps;
-    if (!this.useRandomMap && !featuredMapList.includes(this.selectedMap)) {
+    if (
+      !this.useRandomMap &&
+      this.isBuiltInMap(this.selectedMap) &&
+      !featuredMapList.includes(this.selectedMap)
+    ) {
       featuredMapList = [this.selectedMap, ...featuredMaps];
     }
     return html`<div class="w-full">
@@ -153,36 +210,61 @@ export class MapPicker extends LitElement {
           <div
             role="tablist"
             aria-label="${translateText("map.map")}"
-            class="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/20 p-1"
+            class="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-black/20 p-1"
           >
             <button
               type="button"
               role="tab"
-              aria-selected=${!this.showAllMaps}
+              aria-selected=${!this.showAllMaps && !this.showCustomMaps}
               class="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95 ${this
-                .showAllMaps
+                .showAllMaps || this.showCustomMaps
                 ? "text-white/60 hover:text-white"
                 : "bg-blue-500/20 text-blue-100 shadow-[0_0_12px_rgba(59,130,246,0.2)]"}"
-              @click=${() => (this.showAllMaps = false)}
+              @click=${() => {
+                this.showAllMaps = false;
+                this.showCustomMaps = false;
+              }}
             >
               ${translateText("map.featured")}
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected=${this.showAllMaps}
+              aria-selected=${this.showAllMaps && !this.showCustomMaps}
               class="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95 ${this
-                .showAllMaps
+                .showAllMaps && !this.showCustomMaps
                 ? "bg-blue-500/20 text-blue-100 shadow-[0_0_12px_rgba(59,130,246,0.2)]"
                 : "text-white/60 hover:text-white"}"
-              @click=${() => (this.showAllMaps = true)}
+              @click=${() => {
+                this.showAllMaps = true;
+                this.showCustomMaps = false;
+              }}
             >
               ${translateText("map.all")}
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected=${this.showCustomMaps}
+              class="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all active:scale-95 ${this
+                .showCustomMaps
+                ? "bg-blue-500/20 text-blue-100 shadow-[0_0_12px_rgba(59,130,246,0.2)]"
+                : "text-white/60 hover:text-white"}"
+              @click=${() => {
+                this.showAllMaps = false;
+                this.showCustomMaps = true;
+              }}
+            >
+              Custom Map
+            </button>
           </div>
         </div>
-        ${this.showAllMaps ? this.renderAllMaps() : this.renderFeaturedMaps()}
-        ${this.renderLiveMaps()}
+        ${this.showCustomMaps
+          ? this.renderCustomMaps()
+          : this.showAllMaps
+            ? this.renderAllMaps()
+            : this.renderFeaturedMaps()}
+        ${this.showCustomMaps ? html`` : this.renderLiveMaps()}
         <div
           class="w-full ${this.randomMapDivider
             ? "pt-4 border-t border-white/5"

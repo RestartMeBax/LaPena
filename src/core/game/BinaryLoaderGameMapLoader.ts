@@ -4,10 +4,10 @@ import { GameMapLoader, MapData } from "./GameMapLoader";
 import { MapManifest } from "./TerrainMapLoader";
 
 export class BinaryLoaderGameMapLoader implements GameMapLoader {
-  private maps: Map<GameMapType, MapData>;
+  private maps: Map<string, MapData>;
 
   constructor() {
-    this.maps = new Map<GameMapType, MapData>();
+    this.maps = new Map<string, MapData>();
   }
 
   private createLazyLoader<T>(importFn: () => Promise<T>): () => Promise<T> {
@@ -18,7 +18,10 @@ export class BinaryLoaderGameMapLoader implements GameMapLoader {
     };
   }
 
-  getMapData(map: GameMapType): MapData {
+  getMapData(map: GameMapType | string): MapData {
+    if (!Object.values(GameMapType).includes(map as GameMapType)) {
+      throw new Error(`BinaryLoaderGameMapLoader does not support custom map: ${map}`);
+    }
     const cachedMap = this.maps.get(map);
     if (cachedMap) {
       return cachedMap;

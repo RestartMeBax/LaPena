@@ -169,7 +169,7 @@ export interface ToggleOptionConfig {
 
 export interface GameConfigSettingsData {
   map: {
-    selected: GameMapType;
+    selected: string;
     useRandom: boolean;
     randomMapDivider?: boolean;
     showMedals?: boolean;
@@ -233,7 +233,7 @@ export class GameConfigSettings extends LitElement {
     );
   }
 
-  private handleSelectMap = (map: GameMapType) => {
+  private handleSelectMap = (map: string) => {
     this.emit("map-selected", { map });
   };
 

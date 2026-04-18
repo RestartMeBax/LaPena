@@ -1,9 +1,8 @@
 import { html, LitElement } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { GameEndInfo } from "../core/Schemas";
-import { GameMapType } from "../core/game/Game";
 import { fetchGameById } from "./Api";
-import { terrainMapFileLoader } from "./TerrainMapFileLoader";
+import { resolveMapPresentation } from "./MapPresentation";
 import { renderDuration, translateText } from "./Utils";
 import {
   PlayerInfo,
@@ -22,6 +21,7 @@ export class GameInfoModal extends LitElement {
   };
 
   @state() private mapImage: string | null = null;
+  @state() private mapDisplayName: string | null = null;
   @state() private gameInfo: GameEndInfo | null = null;
   @state() private rankedPlayers: Array<PlayerInfo> = [];
   @property({ type: String }) gameId: string | null = null;
@@ -123,7 +123,7 @@ export class GameInfoModal extends LitElement {
             <span class="bg-white text-blue-800 font-normal pl-1 pr-1"
               >${info.config.gameMode}</span
             >
-            <span class="font-bold">${info.config.gameMap}</span>
+            <span class="font-bold">${this.mapDisplayName ?? info.config.gameMap}</span>
           </div>
           <div>${renderDuration(info.duration)}</div>
           <div>
@@ -174,11 +174,12 @@ export class GameInfoModal extends LitElement {
 
   private async loadMapImage(gameMap: string) {
     try {
-      const mapType = gameMap as GameMapType;
-      const data = terrainMapFileLoader.getMapData(mapType);
-      this.mapImage = data.webpPath;
+      const presentation = await resolveMapPresentation(gameMap);
+      this.mapImage = presentation.imageUrl;
+      this.mapDisplayName = presentation.name;
     } catch (error) {
       console.error("Failed to load map image:", error);
+      this.mapDisplayName = gameMap;
     }
   }
 

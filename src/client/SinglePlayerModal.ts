@@ -63,7 +63,7 @@ const DEFAULT_OPTIONS = {
 
 @customElement("single-player-modal")
 export class SinglePlayerModal extends BaseModal {
-  @state() private selectedMap: GameMapType = DEFAULT_OPTIONS.selectedMap;
+  @state() private selectedMap: string = DEFAULT_OPTIONS.selectedMap;
   @state() private selectedDifficulty: Difficulty =
     DEFAULT_OPTIONS.selectedDifficulty;
   @state() private nations: number = 0;
@@ -435,14 +435,14 @@ export class SinglePlayerModal extends BaseModal {
     this.handleSelectRandomMap();
   };
 
-  private handleMapSelection(value: GameMapType) {
+  private handleMapSelection(value: string) {
     this.selectedMap = value;
     this.useRandomMap = false;
     void this.loadNationCount();
   }
 
   private handleConfigMapSelected = (e: Event) => {
-    const customEvent = e as CustomEvent<{ map: GameMapType }>;
+    const customEvent = e as CustomEvent<{ map: string }>;
     this.handleMapSelection(customEvent.detail.map);
   };
 
@@ -651,7 +651,7 @@ export class SinglePlayerModal extends BaseModal {
     }
 
     console.log(
-      `Starting single player game with map: ${GameMapType[this.selectedMap as keyof typeof GameMapType]}${this.useRandomMap ? " (Randomly selected)" : ""}`,
+      `Starting single player game with map: ${this.selectedMap}${this.useRandomMap ? " (Randomly selected)" : ""}`,
     );
     const clientID = generateID();
     const gameID = generateID();

@@ -21,7 +21,9 @@ export function normaliseMapKey(mapName: string): string {
 
 export function getMapName(mapName: string | undefined): string | null {
   if (!mapName) return null;
-  return translateText(`map.${normaliseMapKey(mapName)}`);
+  const translationKey = `map.${normaliseMapKey(mapName)}`;
+  const translated = translateText(translationKey);
+  return translated === translationKey ? mapName : translated;
 }
 
 /**

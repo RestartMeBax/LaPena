@@ -44,7 +44,7 @@ import {
 
 @customElement("host-lobby-modal")
 export class HostLobbyModal extends BaseModal {
-  @state() private selectedMap: GameMapType = GameMapType.World;
+  @state() private selectedMap: string = GameMapType.World;
   @state() private selectedDifficulty: Difficulty = Difficulty.Easy;
   @state() private nations: number = 0;
   @state() private defaultNationCount: number = 0;
@@ -558,7 +558,7 @@ export class HostLobbyModal extends BaseModal {
     void this.handleSelectRandomMap();
   };
 
-  private async handleMapSelection(value: GameMapType) {
+  private async handleMapSelection(value: string) {
     this.selectedMap = value;
     this.useRandomMap = false;
     await this.loadNationCount();
@@ -566,7 +566,7 @@ export class HostLobbyModal extends BaseModal {
   }
 
   private handleConfigMapSelected = (e: Event) => {
-    const customEvent = e as CustomEvent<{ map: GameMapType }>;
+    const customEvent = e as CustomEvent<{ map: string }>;
     void this.handleMapSelection(customEvent.detail.map);
   };
 
@@ -994,7 +994,7 @@ export class HostLobbyModal extends BaseModal {
   private async startGame() {
     await this.putGameConfig();
     console.log(
-      `Starting private game with map: ${GameMapType[this.selectedMap as keyof typeof GameMapType]} ${this.useRandomMap ? " (Randomly selected)" : ""}`,
+      `Starting private game with map: ${this.selectedMap} ${this.useRandomMap ? " (Randomly selected)" : ""}`,
     );
 
     // If the modal closes as part of starting the game, do not leave the lobby

@@ -14,9 +14,9 @@ import { crazyGamesSDK } from "./CrazyGamesSDK";
 import { HostLobbyModal } from "./HostLobbyModal";
 import { JoinLobbyModal } from "./JoinLobbyModal";
 import { PublicLobbySocket } from "./LobbySocket";
+import { MapPresentation, resolveMapPresentation } from "./MapPresentation";
 import { JoinLobbyEvent } from "./Main";
 import { SinglePlayerModal } from "./SinglePlayerModal";
-import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import { UsernameInput } from "./UsernameInput";
 import {
   calculateServerTimeOffset,
@@ -32,7 +32,7 @@ const CARD_BG = "bg-sky-950";
 @customElement("game-mode-selector")
 export class GameModeSelector extends LitElement {
   @state() private lobbies: PublicGames | null = null;
-  @state() private mapAspectRatios: Map<GameMapType, number> = new Map();
+  @state() private mapPresentationByKey: Map<string, MapPresentation> = new Map();
   private serverTimeOffset: number = 0;
   private defaultLobbyTime: number = 0;
 
@@ -84,24 +84,17 @@ export class GameModeSelector extends LitElement {
 
     const allGames = Object.values(lobbies.games ?? {}).flat();
     for (const game of allGames) {
-      const mapType = game.gameConfig?.gameMap as GameMapType;
-      if (mapType && !this.mapAspectRatios.has(mapType)) {
-        // New Map reference triggers Lit reactivity; placeholder ratio 1 lets
-        // has() guard against duplicate in-flight fetches.
-        this.mapAspectRatios = new Map(this.mapAspectRatios).set(mapType, 1);
-        terrainMapFileLoader
-          .getMapData(mapType)
-          .manifest()
-          .then((m: any) => {
-            if (m?.map?.width && m?.map?.height) {
-              this.mapAspectRatios = new Map(this.mapAspectRatios).set(
-                mapType,
-                m.map.width / m.map.height,
-              );
-            }
+      const mapKey = game.gameConfig?.gameMap;
+      if (mapKey && !this.mapPresentationByKey.has(mapKey)) {
+        resolveMapPresentation(mapKey)
+          .then((presentation) => {
+            this.mapPresentationByKey = new Map(this.mapPresentationByKey).set(
+              mapKey,
+              presentation,
+            );
           })
           .catch((e) =>
-            console.error(`Failed to load manifest for ${mapType}`, e),
+            console.error(`Failed to resolve map presentation for ${mapKey}`, e),
           );
       }
     }
@@ -260,9 +253,10 @@ export class GameModeSelector extends LitElement {
     lobby: PublicGameInfo,
     titleContent: string | TemplateResult,
   ) {
-    const mapType = lobby.gameConfig!.gameMap as GameMapType;
-    const mapImageSrc = terrainMapFileLoader.getMapData(mapType).webpPath;
-    const aspectRatio = this.mapAspectRatios.get(mapType);
+    const mapKey = lobby.gameConfig!.gameMap;
+    const presentation = this.mapPresentationByKey.get(mapKey);
+    const mapImageSrc = presentation?.imageUrl;
+    const aspectRatio = presentation?.aspectRatio;
     // Use object-contain for extreme aspect ratios (e.g. Amazon River ~20:1) so
     // the full map is visible instead of being cropped by object-cover.
     const useContain =
@@ -282,7 +276,7 @@ export class GameModeSelector extends LitElement {
       timeDisplayUppercase = true;
     }
 
-    const mapName = getMapName(lobby.gameConfig?.gameMap);
+    const mapName = presentation?.name ?? getMapName(lobby.gameConfig?.gameMap);
 
     const modifierLabels = getModifierLabels(
       lobby.gameConfig?.publicGameModifiers,

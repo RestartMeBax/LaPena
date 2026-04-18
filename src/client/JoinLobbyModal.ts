@@ -436,10 +436,15 @@ export class JoinLobbyModal extends BaseModal {
 
     const c = this.gameConfig;
     const mapName = getMapName(c.gameMap);
-    const normalizedMap = normaliseMapKey(c.gameMap);
-    const thumbnailUrl = assetUrl(
-      `maps/${encodeURIComponent(normalizedMap)}/thumbnail.webp`,
-    );
+    let thumbnailUrl = assetUrl("images/Favicon.svg");
+    try {
+      thumbnailUrl = terrainMapFileLoader.getMapData(c.gameMap).webpPath;
+    } catch {
+      const normalizedMap = normaliseMapKey(c.gameMap);
+      thumbnailUrl = assetUrl(
+        `maps/${encodeURIComponent(normalizedMap)}/thumbnail.webp`,
+      );
+    }
     const isTeam = c.gameMode === GameMode.Team;
 
     let modeSubtitle: string;

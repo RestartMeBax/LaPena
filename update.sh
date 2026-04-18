@@ -27,28 +27,36 @@ echo "======================================================"
 
 # Container and image configuration
 CONTAINER_NAME="openfront-${ENV}-${SUBDOMAIN}"
+PERSIST_ROOT="${OPENFRONT_PERSIST_ROOT:-/home/openfront/persistent}"
+HOST_DATA_DIR="${PERSIST_ROOT}/${CONTAINER_NAME}/data"
 
 echo "Pulling ${GHCR_IMAGE} from GitHub Container Registry..."
 docker pull "${GHCR_IMAGE}"
 
+echo "Preparing persistent data directory: ${HOST_DATA_DIR}"
+mkdir -p "$HOST_DATA_DIR"
+chmod 0777 "$HOST_DATA_DIR"
+
 echo "Checking for existing container..."
-# Use docker ps with filter for exact name match
+EXISTING_CONTAINER="$(docker ps -a --filter "name=^${CONTAINER_NAME}$" -q | head -n 1)"
+if [ -n "$EXISTING_CONTAINER" ] && [ -z "$(ls -A "$HOST_DATA_DIR" 2>/dev/null)" ]; then
+    echo "Migrating existing in-container data to host persistent directory..."
+    if docker cp "${EXISTING_CONTAINER}:/usr/src/app/data/." "$HOST_DATA_DIR/"; then
+        echo "Data migration completed."
+    else
+        echo "No in-container data found to migrate (continuing)."
+    fi
+fi
+
 RUNNING_CONTAINER="$(docker ps --filter "name=^${CONTAINER_NAME}$" -q)"
 if [ -n "$RUNNING_CONTAINER" ]; then
     echo "Stopping running container $RUNNING_CONTAINER..."
     docker stop "$RUNNING_CONTAINER"
-    echo "Waiting for container to fully stop and release resources..."
-    sleep 5 # Add a 5-second delay
-    docker rm "$RUNNING_CONTAINER"
-    echo "Container $RUNNING_CONTAINER stopped and removed."
 fi
 
-# Also check for stopped containers with the same name
-STOPPED_CONTAINER="$(docker ps -a --filter "name=^${CONTAINER_NAME}$" -q)"
-if [ -n "$STOPPED_CONTAINER" ]; then
-    echo "Removing stopped container $STOPPED_CONTAINER..."
-    docker rm "$STOPPED_CONTAINER"
-    echo "Container $STOPPED_CONTAINER removed."
+if [ -n "$EXISTING_CONTAINER" ]; then
+    echo "Removing existing container $EXISTING_CONTAINER..."
+    docker rm "$EXISTING_CONTAINER"
 fi
 
 if [ "${SUBDOMAIN}" = main ] || [ "${DOMAIN}" = openfront.io ]; then
@@ -66,6 +74,7 @@ docker run -d \
     --restart="${RESTART}" \
     --env-file "$ENV_FILE" \
     --name "${CONTAINER_NAME}" \
+    -v "${HOST_DATA_DIR}:/usr/src/app/data" \
     --network web \
     --label "traefik.enable=true" \
     --label "traefik.http.routers.${CONTAINER_NAME}.rule=Host(\`${SUBDOMAIN}.${DOMAIN}\`)" \

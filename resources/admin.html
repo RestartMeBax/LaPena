@@ -855,6 +855,7 @@
               </div>
               <p id="mapValidationHint" class="field-note">Verify required map files before approval.</p>
               <div class="form-actions">
+                <button id="generateMapFiles" type="button" class="ghost-btn">Generate Required Files</button>
                 <button id="uploadMapFiles" type="button" class="ghost-btn">Upload Required Files</button>
                 <button id="verifyMapFiles" type="button" class="ghost-btn">Verify Required Files</button>
                 <button id="addMap">Approve &amp; Save Map Entry</button>
@@ -2344,94 +2345,147 @@
         };
       }
 
+      function resolveMapBundleKey() {
+        const mapKeyInput = document.getElementById("mapKey");
+        const generatorKeyInput = document.getElementById("mapGeneratorKey");
+        const keyRaw = mapKeyInput.value.trim() || generatorKeyInput.value.trim();
+        const key = slugify(keyRaw);
+        if (!key) {
+          return "";
+        }
+        mapKeyInput.value = key;
+        if (!generatorKeyInput.value.trim()) {
+          generatorKeyInput.value = key;
+        }
+        return key;
+      }
+
+      function base64ToBytes(base64) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      function setSingleFileInput(inputId, file) {
+        const input = document.getElementById(inputId);
+        if (!input) {
+          throw new Error(`Missing input: ${inputId}`);
+        }
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        input.files = dataTransfer.files;
+      }
+
+      function fillMapBundleInputsFromPayload(payload, options = {}) {
+        const { silent = false } = options;
+        try {
+          setSingleFileInput(
+            "mapManifestFile",
+            new File([payload.manifestJson], "manifest.json", { type: "application/json" }),
+          );
+          setSingleFileInput(
+            "mapBinFile",
+            new File([base64ToBytes(payload.mapBinBase64)], "map.bin", { type: "application/octet-stream" }),
+          );
+          setSingleFileInput(
+            "map4xFile",
+            new File([base64ToBytes(payload.map4xBinBase64)], "map4x.bin", { type: "application/octet-stream" }),
+          );
+          setSingleFileInput(
+            "map16xFile",
+            new File([base64ToBytes(payload.map16xBinBase64)], "map16x.bin", { type: "application/octet-stream" }),
+          );
+          invalidateMapValidation();
+          if (!silent) {
+            setStatus("Generated required files and filled all 4 file inputs.");
+          }
+          return true;
+        } catch (error) {
+          if (!silent) {
+            setStatus(error?.message || "Could not place generated files into inputs.", false);
+          }
+          return false;
+        }
+      }
+
       function generateMapBundleFromImageTool() {
         try {
           const generated = generateMapGeneratorOutput();
           if (!generated) {
-            console.warn("Map generation: no image loaded");
             return null;
           }
 
-          const key = slugify(document.getElementById("mapKey").value.trim());
-          const enteredName = document.getElementById("mapName").value.trim();
+          const key = resolveMapBundleKey();
+          const enteredName =
+            document.getElementById("mapName").value.trim() ||
+            document.getElementById("mapGeneratorName").value.trim();
           const mapName = enteredName || titleFromMapKey(key) || key || "Custom Map";
 
-          console.log("Map generation: building tile data", { width: generated.width, height: generated.height });
           const full = buildTileDataFromGeneratedImage(generated);
-          console.log("Map generation: processing water and shoreline");
           processWaterAndShoreline(full);
-          console.log("Map generation: creating minimap scales");
           const mini4 = createMiniTileData(full);
           const mini16 = createMiniTileData(mini4);
 
-          console.log("Map generation: packing tile data");
           const map = packTileData(full);
           const map4x = packTileData(mini4);
           const map16x = packTileData(mini16);
 
-        const manifest = {
-          name: mapName,
-          nations: [],
-          map: {
-            width: map.width,
-              console.log("generateMapBundleFromImageTool: image loaded", { width: generated.width, height: generated.height });
-          
-              const full = buildTileDataFromGeneratedImage(generated);
-              console.log("generateMapBundleFromImageTool: built tile data", { width: full.width, height: full.height });
-          
-              processWaterAndShoreline(full);
-              console.log("generateMapBundleFromImageTool: processed water/shoreline");
-          
-              const mini4 = createMiniTileData(full);
-              console.log("generateMapBundleFromImageTool: created 4x scale");
-          
-              const mini16 = createMiniTileData(mini4);
-              console.log("generateMapBundleFromImageTool: created 16x scale");
-          
-              const map = packTileData(full);
-              const map4x = packTileData(mini4);
-              const map16x = packTileData(mini16);
-              console.log("generateMapBundleFromImageTool: packed data", { fullSize: map.bytes.length, mini4Size: map4x.bytes.length, mini16Size: map16x.bytes.length });
-          
-              const manifest = {
-                name: "Generated Map",
-                nations: [],
-                map: {
-                  width: map.width,
-                  height: map.height,
-                  num_land_tiles: map.numLandTiles,
-                },
-                map4x: {
-                  width: map4x.width,
-                  height: map4x.height,
-                  num_land_tiles: map4x.numLandTiles,
-                },
-                map16x: {
-                  width: map16x.width,
-                  height: map16x.height,
-                  num_land_tiles: map16x.numLandTiles,
-                },
-              };
-          
-              const payload = {
-                manifestJson: JSON.stringify(manifest, null, 2),
-                mapBinBase64: bytesToBase64(map.bytes),
-                map4xBinBase64: bytesToBase64(map4x.bytes),
-                map16xBinBase64: bytesToBase64(map16x.bytes),
-              };
-          
-              console.log("generateMapBundleFromImageTool: complete, payload size:", {
-                manifestSize: payload.manifestJson.length,
-                mapBinSize: payload.mapBinBase64.length,
-                map4xSize: payload.map4xBinBase64.length,
-                map16xSize: payload.map16xBinBase64.length,
-              });
-          
-              return payload;
-            } catch (error) {
-              console.error("generateMapBundleFromImageTool failed:", error?.message || String(error), error);
-              return null;
-            }
+          const manifest = {
+            name: mapName,
+            nations: [],
+            map: {
+              width: map.width,
+              height: map.height,
+              num_land_tiles: map.numLandTiles,
+            },
+            map4x: {
+              width: map4x.width,
+              height: map4x.height,
+              num_land_tiles: map4x.numLandTiles,
+            },
+            map16x: {
+              width: map16x.width,
+              height: map16x.height,
+              num_land_tiles: map16x.numLandTiles,
+            },
+          };
+
+          return {
+            manifestJson: JSON.stringify(manifest, null, 2),
+            mapBinBase64: bytesToBase64(map.bytes),
+            map4xBinBase64: bytesToBase64(map4x.bytes),
+            map16xBinBase64: bytesToBase64(map16x.bytes),
+          };
+        } catch (error) {
+          return null;
+        }
+      }
+
+      async function uploadMapBundlePayload(key, payload) {
+        const response = await requestJson("/api/admin/maps/upload-files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key,
+            manifestJson: payload.manifestJson,
+            mapBinBase64: payload.mapBinBase64,
+            map4xBinBase64: payload.map4xBinBase64,
+            map16xBinBase64: payload.map16xBinBase64,
+          }),
+        });
+
+        if (!response.ok || !response.body?.success) {
+          setStatus(response.body?.error || "Could not upload map files.", false);
+          return false;
+        }
+
+        const uploadedMapUrl = String(response.body.mapUrl || defaultMapDataUrlFromKey(key));
+        if (uploadedMapUrl) {
+          document.getElementById("mapUrl").value = uploadedMapUrl;
+          document.getElementById("mapGeneratorDataUrl").value = uploadedMapUrl;
         }
         invalidateMapValidation();
         setStatus(`Uploaded required map files to ${uploadedMapUrl}.`);
@@ -2451,29 +2505,18 @@
           if (autoGenerateFromImageTool) {
             const generatedPayload = generateMapBundleFromImageTool();
             if (generatedPayload) {
-              const keyRaw = document.getElementById("mapKey").value.trim();
-              const key = slugify(keyRaw);
-              console.log("uploadSelectedMapBundle: auto-generate: keyRaw=", keyRaw, "key=", key);
+              fillMapBundleInputsFromPayload(generatedPayload, { silent: true });
+              const key = resolveMapBundleKey();
               if (!key) {
-                console.warn("uploadSelectedMapBundle: no key provided");
-                setStatus("Map key is required. Enter it in 'Map Key' field and try again.", false);
+                setStatus("Map key is required. Enter it in Map Key field and try again.", false);
                 document.getElementById("mapKey").focus();
                 return false;
               }
-              if (keyRaw !== key) {
-                console.log("uploadSelectedMapBundle: normalizing key");
-                document.getElementById("mapKey").value = key;
-              }
-              console.log("uploadSelectedMapBundle: starting upload for key:", key);
               setStatus("Generating and uploading required map files...");
-              const uploaded = await uploadMapBundlePayload(key, generatedPayload);
-              console.log("uploadSelectedMapBundle: auto-generate upload result:", uploaded);
-              return uploaded;
-            } else {
-              // Generation failed (no image loaded, etc.)
-              setStatus("Load an image in Image To Map section to generate files automatically, or manually select files.", false);
-              return false;
+              return await uploadMapBundlePayload(key, generatedPayload);
             }
+            setStatus("Load an image in Image To Map section to generate files automatically, or manually select files.", false);
+            return false;
           }
 
           if (!silentWhenEmpty && requireAll) {
@@ -2506,7 +2549,7 @@
             fileToArrayBuffer(files.map16x),
           ]);
 
-          return uploadMapBundlePayload(key, {
+          return await uploadMapBundlePayload(key, {
             manifestJson,
             mapBinBase64: bytesToBase64(new Uint8Array(mapBinBuffer)),
             map4xBinBase64: bytesToBase64(new Uint8Array(map4xBuffer)),
@@ -2895,14 +2938,53 @@
       });
 
       document.getElementById("verifyMapFiles").addEventListener("click", async (event) => {
-        if (!requireFields([["mapUrl", "Map Data URL"]])) {
-          return;
-        }
-
         const button = event.currentTarget;
         await setButtonBusy(button, "Verifying...", async () => {
+          const uploaded = await uploadSelectedMapBundle({
+            silentWhenEmpty: true,
+            autoGenerateFromImageTool: true,
+          });
+          if (uploaded === false) {
+            return;
+          }
+
+          if (!requireFields([["mapUrl", "Map Data URL"]])) {
+            return;
+          }
+
           const mapUrl = document.getElementById("mapUrl").value.trim();
           await verifyMapDataUrlOrShowError(mapUrl);
+        });
+      });
+
+      document.getElementById("generateMapFiles").addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        await setButtonBusy(button, "Generating...", async () => {
+          const generatedPayload = generateMapBundleFromImageTool();
+          if (!generatedPayload) {
+            setStatus("Load an image in Image To Map section before generating files.", false);
+            return;
+          }
+
+          const key = resolveMapBundleKey();
+          if (!key) {
+            setStatus("Map key is required. Enter it in Map Key field and try again.", false);
+            document.getElementById("mapKey").focus();
+            return;
+          }
+
+          const filled = fillMapBundleInputsFromPayload(generatedPayload);
+          if (!filled) {
+            return;
+          }
+
+          const defaultMapUrl = defaultMapDataUrlFromKey(key);
+          if (!document.getElementById("mapUrl").value.trim() && defaultMapUrl) {
+            document.getElementById("mapUrl").value = defaultMapUrl;
+          }
+          if (!document.getElementById("mapGeneratorDataUrl").value.trim() && defaultMapUrl) {
+            document.getElementById("mapGeneratorDataUrl").value = defaultMapUrl;
+          }
         });
       });
 

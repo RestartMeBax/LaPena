@@ -787,7 +787,7 @@
             <article class="form-panel">
               <div id="mapGeneratorPreviewWrap" class="canvas-frame">
                 <canvas id="mapGeneratorPreview" width="600" height="360" style="display:block;width:100%;height:auto;border:1px solid rgba(61,78,59,0.18);border-radius:12px;background:#0d1320;image-rendering:pixelated"></canvas>
-                <p class="field-note">This generates the terrain PNG input for <code>map-generator/assets/maps/&lt;map_name&gt;/image.png</code>. Then run Go map-generator and set Map Data URL to the output folder containing <code>manifest.json</code> and <code>map.bin</code>. Use <strong>Fill Map Entry Form</strong> so you do not need to type fields twice.</p>
+                <p class="field-note">This generates the terrain PNG input for <code>map-generator/assets/maps/&lt;map_name&gt;/image.png</code>. Then run Go map-generator and set Map Data URL to the output folder containing <code>manifest.json</code> and <code>map.bin</code>. Recommended source size is around 2-3 million pixels area (for example 2048x1024 or 2304x1296), with width and height divisible by 4. Preview uploads are automatically scaled/compressed for reliability.</p>
               </div>
             </article>
           </div>
@@ -1604,7 +1604,41 @@
       }
 
       async function uploadGeneratedMapPreviewImage() {
-        const dataUrl = exportMapGeneratorPng();
+        const generated = generateMapGeneratorOutput();
+        if (!generated) {
+          setStatus("Upload a source image first.", false);
+          return null;
+        }
+
+        const maxSide = 1024;
+        const scale = Math.min(1, maxSide / Math.max(generated.width, generated.height));
+        const previewWidth = Math.max(1, Math.floor(generated.width * scale));
+        const previewHeight = Math.max(1, Math.floor(generated.height * scale));
+
+        const fullCanvas = document.createElement("canvas");
+        fullCanvas.width = generated.width;
+        fullCanvas.height = generated.height;
+        fullCanvas.getContext("2d").putImageData(
+          new ImageData(generated.data, generated.width, generated.height),
+          0,
+          0,
+        );
+
+        const previewCanvas = document.createElement("canvas");
+        previewCanvas.width = previewWidth;
+        previewCanvas.height = previewHeight;
+        const previewCtx = previewCanvas.getContext("2d");
+        previewCtx.imageSmoothingEnabled = false;
+        previewCtx.drawImage(fullCanvas, 0, 0, previewWidth, previewHeight);
+
+        // Upload a compressed preview so it stays below server upload limits.
+        let dataUrl = previewCanvas.toDataURL("image/webp", 0.86);
+        let contentType = "image/webp";
+        if (!dataUrl.startsWith("data:image/webp")) {
+          dataUrl = previewCanvas.toDataURL("image/png");
+          contentType = "image/png";
+        }
+
         if (!dataUrl) {
           return null;
         }
@@ -1616,8 +1650,8 @@
           },
           body: JSON.stringify({
             data: dataUrl,
-            contentType: "image/png",
-            filename: "generated-map-preview.png",
+            contentType,
+            filename: contentType === "image/webp" ? "generated-map-preview.webp" : "generated-map-preview.png",
           }),
         });
         const body = await response.json();

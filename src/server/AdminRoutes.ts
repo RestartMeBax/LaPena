@@ -624,7 +624,7 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
       });
     }
 
-    const MAX_BUNDLE_SIZE = 50 * 1024 * 1024;
+    const MAX_BUNDLE_SIZE = 180 * 1024 * 1024;
     const totalSize =
       Buffer.byteLength(manifestJson, "utf8") +
       mapBin.length +
@@ -632,7 +632,7 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
       map16xBin.length;
     if (totalSize > MAX_BUNDLE_SIZE) {
       return res.status(413).json({
-        error: "Map bundle is too large (max 50 MB)",
+        error: "Map bundle is too large (max 180 MB)",
       });
     }
 

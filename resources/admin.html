@@ -780,6 +780,7 @@
               <div class="form-actions">
                 <button id="mapGeneratorDownload" type="button">Download image.png</button>
                 <button id="mapGeneratorUploadPreview" type="button" class="ghost-btn">Use As Preview Image</button>
+                <button id="mapGeneratorVerifyMapUrl" type="button" class="ghost-btn">Verify Map Data URL</button>
                 <button id="mapGeneratorApplyToMap" type="button" class="ghost-btn">Fill Map Entry Form</button>
                 <button id="mapGeneratorCreateMap" type="button">Create Map Entry Now</button>
               </div>
@@ -1682,6 +1683,55 @@
         return body.url || "";
       }
 
+      async function verifyMapDataUrlOrShowError(mapUrl) {
+        const normalized = String(mapUrl || "").trim().replace(/\/+$/, "");
+        if (!normalized) {
+          setStatus("Map Data URL is required.", false);
+          return false;
+        }
+
+        const manifestUrl = normalized.endsWith("/manifest.json")
+          ? normalized
+          : `${normalized}/manifest.json`;
+
+        try {
+          const response = await fetch(manifestUrl, { headers: { Accept: "application/json" } });
+          if (!response.ok) {
+            setStatus(`Map Data URL check failed: ${response.status} for ${manifestUrl}`, false);
+            return false;
+          }
+
+          const contentType = (response.headers.get("content-type") || "").toLowerCase();
+          const text = await response.text();
+          if (contentType.includes("text/html") || text.trimStart().startsWith("<!doctype") || text.trimStart().startsWith("<html")) {
+            setStatus(
+              `Map Data URL points to HTML, not map manifest JSON. Set it to the generated map folder (contains manifest.json/map.bin).`,
+              false,
+            );
+            return false;
+          }
+
+          let manifest;
+          try {
+            manifest = JSON.parse(text);
+          } catch {
+            setStatus(`Map Data URL returned invalid JSON: ${manifestUrl}`, false);
+            return false;
+          }
+
+          if (!manifest || !manifest.map || !manifest.map4x || !manifest.map16x) {
+            setStatus(`Manifest looks invalid at ${manifestUrl}.`, false);
+            return false;
+          }
+
+          setStatus(`Map Data URL verified: ${manifestUrl}`);
+          return true;
+        } catch {
+          setStatus(`Could not reach ${manifestUrl}`, false);
+          return false;
+        }
+      }
+
       function normalizeMapKey(value) {
         return normalizeValue(value);
       }
@@ -2435,6 +2485,12 @@
           return;
         }
 
+        const mapUrl = document.getElementById("mapUrl").value.trim();
+        const verified = await verifyMapDataUrlOrShowError(mapUrl);
+        if (!verified) {
+          return;
+        }
+
         try {
           setStatus("Uploading generated preview and creating map entry…");
           const imageUrl = await uploadGeneratedMapPreviewImage();
@@ -2447,6 +2503,15 @@
         }
 
         document.getElementById("addMap").click();
+      });
+
+      document.getElementById("mapGeneratorVerifyMapUrl").addEventListener("click", async () => {
+        const applied = applyGeneratorFieldsToMapForm();
+        if (!applied) {
+          return;
+        }
+        const mapUrl = document.getElementById("mapUrl").value.trim();
+        await verifyMapDataUrlOrShowError(mapUrl);
       });
 
       document.getElementById("mapGeneratorKey").addEventListener("change", () => {

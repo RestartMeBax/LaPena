@@ -145,6 +145,19 @@ export class FetchGameMapLoader implements GameMapLoader {
       throw new Error(`Failed to load ${url}: ${response.statusText}`);
     }
 
-    return response.json();
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    const text = await response.text();
+
+    if (contentType.includes("text/html") || text.trimStart().startsWith("<!doctype") || text.trimStart().startsWith("<html")) {
+      throw new Error(
+        `Map manifest URL returned HTML instead of JSON: ${url}. Check custom map Map Data URL points to a folder with manifest.json, map.bin, map4x.bin, and map16x.bin.`,
+      );
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Invalid JSON at ${url}`);
+    }
   }
 }

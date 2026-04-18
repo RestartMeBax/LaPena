@@ -16,6 +16,7 @@ import { registerAuthRoutes } from "./AuthRoutes";
 import { registerLiveContentRoutes } from "./LiveContentRoutes";
 import { registerImageProxyRoutes } from "./ImageProxyRoutes";
 import { registerShopRoutes } from "./ShopRoutes";
+import { getCustomMapsDir } from "./CustomMapStorage";
 import { setNoStoreHeaders } from "./NoStoreHeaders";
 import { renderAppShell } from "./RenderHtml";
 import { applyStaticAssetCacheControl } from "./StaticAssetCache";
@@ -31,7 +32,7 @@ const log = logger.child({ comp: "m" });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
 
 function getSiteFromHostname(hostname: string): string {
   const normalized = hostname.toLowerCase();
@@ -108,6 +109,18 @@ app.get("/admin.html", async (req, res, next) => {
     res.status(500).send("Internal Server Error");
   }
 });
+
+app.use(
+  "/maps",
+  express.static(getCustomMapsDir(), {
+    maxAge: "1y",
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".webp")) {
+        res.setHeader("Content-Type", "image/webp");
+      }
+    },
+  }),
+);
 
 app.use(
   express.static(path.join(__dirname, "../../static"), {

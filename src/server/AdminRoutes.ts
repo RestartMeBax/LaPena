@@ -2,6 +2,10 @@ import { Request, Response, Router } from "express";
 import crypto from "crypto";
 import { AuthDatabase } from "./AuthDatabase";
 import { verifyAuthToken } from "./AuthJwt";
+import {
+  normalizeCustomMapKey,
+  writeCustomMapBundle,
+} from "./CustomMapStorage";
 import { logger } from "./Logger";
 
 const log = logger.child({ comp: "admin" });
@@ -15,6 +19,163 @@ const OWNER_ADMIN_EMAILS = new Set(
       .filter(Boolean),
   ],
 );
+
+type MapValidationResult =
+  | {
+      ok: true;
+      normalizedBaseUrl: string;
+      manifestUrl: string;
+      files: {
+        manifest: string;
+        mapBin: string;
+        map4xBin: string;
+        map16xBin: string;
+      };
+    }
+  | {
+      ok: false;
+      error: string;
+      manifestUrl?: string;
+    };
+
+function requestOrigin(req: Request): string {
+  const forwardedProto = req.header("x-forwarded-proto");
+  const protocol = forwardedProto || req.protocol || "http";
+  const host = req.get("host") || "localhost";
+  return `${protocol}://${host}`;
+}
+
+function normalizeMapBaseUrl(rawMapUrl: string, req: Request): string {
+  const trimmed = rawMapUrl.trim().replace(/\/+$/, "");
+  const withoutManifest = trimmed.endsWith("/manifest.json")
+    ? trimmed.slice(0, -"/manifest.json".length)
+    : trimmed;
+
+  const absolute = new URL(withoutManifest, requestOrigin(req));
+  return absolute.toString().replace(/\/+$/, "");
+}
+
+async function checkUrlReachable(url: string): Promise<globalThis.Response> {
+  const head = await fetch(url, { method: "HEAD" });
+  if (head.status !== 405) {
+    return head;
+  }
+  return fetch(url, { method: "GET" });
+}
+
+async function validateMapDataUrl(
+  mapUrl: string,
+  req: Request,
+): Promise<MapValidationResult> {
+  const normalizedBaseUrl = normalizeMapBaseUrl(mapUrl, req);
+  const manifestUrl = `${normalizedBaseUrl}/manifest.json`;
+
+  let manifestResponse: globalThis.Response;
+  try {
+    manifestResponse = await fetch(manifestUrl, {
+      headers: { Accept: "application/json" },
+    });
+  } catch {
+    return {
+      ok: false,
+      manifestUrl,
+      error: `Could not reach manifest URL: ${manifestUrl}`,
+    };
+  }
+
+  if (!manifestResponse.ok) {
+    return {
+      ok: false,
+      manifestUrl,
+      error: `Manifest request failed (${manifestResponse.status}) at ${manifestUrl}`,
+    };
+  }
+
+  const contentType = (
+    manifestResponse.headers.get("content-type") || ""
+  ).toLowerCase();
+  const manifestText = await manifestResponse.text();
+  if (
+    contentType.includes("text/html") ||
+    manifestText.trimStart().startsWith("<!doctype") ||
+    manifestText.trimStart().startsWith("<html")
+  ) {
+    return {
+      ok: false,
+      manifestUrl,
+      error:
+        "Manifest URL returned HTML instead of JSON. Use a map folder URL that contains manifest.json and map binaries.",
+    };
+  }
+
+  let manifest: Record<string, unknown>;
+  try {
+    manifest = JSON.parse(manifestText) as Record<string, unknown>;
+  } catch {
+    return {
+      ok: false,
+      manifestUrl,
+      error: `Manifest JSON is invalid at ${manifestUrl}`,
+    };
+  }
+
+  const hasMeta =
+    manifest &&
+    typeof manifest === "object" &&
+    manifest.map &&
+    manifest.map4x &&
+    manifest.map16x;
+  if (!hasMeta) {
+    return {
+      ok: false,
+      manifestUrl,
+      error:
+        "Manifest JSON is missing required map metadata (map, map4x, map16x).",
+    };
+  }
+
+  const files = {
+    manifest: manifestUrl,
+    mapBin: `${normalizedBaseUrl}/map.bin`,
+    map4xBin: `${normalizedBaseUrl}/map4x.bin`,
+    map16xBin: `${normalizedBaseUrl}/map16x.bin`,
+  };
+
+  const binaryChecks = await Promise.all([
+    checkUrlReachable(files.mapBin),
+    checkUrlReachable(files.map4xBin),
+    checkUrlReachable(files.map16xBin),
+  ]);
+
+  if (!binaryChecks[0].ok) {
+    return {
+      ok: false,
+      manifestUrl,
+      error: `Missing required file map.bin (${binaryChecks[0].status}) at ${files.mapBin}`,
+    };
+  }
+  if (!binaryChecks[1].ok) {
+    return {
+      ok: false,
+      manifestUrl,
+      error: `Missing required file map4x.bin (${binaryChecks[1].status}) at ${files.map4xBin}`,
+    };
+  }
+  if (!binaryChecks[2].ok) {
+    return {
+      ok: false,
+      manifestUrl,
+      error: `Missing required file map16x.bin (${binaryChecks[2].status}) at ${files.map16xBin}`,
+    };
+  }
+
+  return {
+    ok: true,
+    normalizedBaseUrl,
+    manifestUrl,
+    files,
+  };
+}
 
 function parseBearerToken(req: Request) {
   const authHeader = req.headers["authorization"];
@@ -332,20 +493,148 @@ export function registerAdminRoutes(app: Router, db: AuthDatabase) {
     return res.json({ maps: db.getAdminMaps() });
   });
 
-  router.post("/maps", (req, res) => {
+  router.post("/maps/validate", async (req, res) => {
+    const rawMapUrl = typeof req.body?.mapUrl === "string" ? req.body.mapUrl : "";
+    const mapUrl = rawMapUrl.trim();
+    if (!mapUrl) {
+      return res.status(400).json({ ok: false, error: "Map Data URL is required" });
+    }
+
+    try {
+      const result = await validateMapDataUrl(mapUrl, req);
+      if (!result.ok) {
+        return res.status(400).json(result);
+      }
+      return res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Map validation failed";
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  router.post("/maps/upload-files", async (req, res) => {
+    const keyRaw = typeof req.body?.key === "string" ? req.body.key : "";
+    const manifestJson =
+      typeof req.body?.manifestJson === "string" ? req.body.manifestJson : "";
+    const mapBinBase64 =
+      typeof req.body?.mapBinBase64 === "string" ? req.body.mapBinBase64 : "";
+    const map4xBinBase64 =
+      typeof req.body?.map4xBinBase64 === "string"
+        ? req.body.map4xBinBase64
+        : "";
+    const map16xBinBase64 =
+      typeof req.body?.map16xBinBase64 === "string"
+        ? req.body.map16xBinBase64
+        : "";
+
+    if (!keyRaw.trim()) {
+      return res.status(400).json({ error: "Map key is required" });
+    }
+    if (!manifestJson.trim()) {
+      return res.status(400).json({ error: "manifest.json content is required" });
+    }
+    if (!mapBinBase64 || !map4xBinBase64 || !map16xBinBase64) {
+      return res.status(400).json({
+        error: "All required files are needed: map.bin, map4x.bin, map16x.bin",
+      });
+    }
+
+    let key: string;
+    try {
+      key = normalizeCustomMapKey(keyRaw);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid map key";
+      return res.status(400).json({ error: message });
+    }
+
+    let manifest: Record<string, unknown>;
+    try {
+      manifest = JSON.parse(manifestJson) as Record<string, unknown>;
+    } catch {
+      return res.status(400).json({ error: "manifest.json is not valid JSON" });
+    }
+
+    const hasManifestMeta =
+      manifest &&
+      typeof manifest === "object" &&
+      manifest.map &&
+      manifest.map4x &&
+      manifest.map16x;
+    if (!hasManifestMeta) {
+      return res.status(400).json({
+        error: "manifest.json must include map, map4x, and map16x metadata",
+      });
+    }
+
+    const toBuffer = (value: string) => Buffer.from(value, "base64");
+    const mapBin = toBuffer(mapBinBase64);
+    const map4xBin = toBuffer(map4xBinBase64);
+    const map16xBin = toBuffer(map16xBinBase64);
+
+    if (mapBin.length === 0 || map4xBin.length === 0 || map16xBin.length === 0) {
+      return res.status(400).json({
+        error: "Uploaded map binary files cannot be empty",
+      });
+    }
+
+    const MAX_BUNDLE_SIZE = 50 * 1024 * 1024;
+    const totalSize =
+      Buffer.byteLength(manifestJson, "utf8") +
+      mapBin.length +
+      map4xBin.length +
+      map16xBin.length;
+    if (totalSize > MAX_BUNDLE_SIZE) {
+      return res.status(413).json({
+        error: "Map bundle is too large (max 50 MB)",
+      });
+    }
+
+    const result = writeCustomMapBundle({
+      key,
+      manifestJson,
+      mapBin,
+      map4xBin,
+      map16xBin,
+    });
+
+    return res.json({
+      success: true,
+      key,
+      mapUrl: result.mapBaseUrl,
+    });
+  });
+
+  router.post("/maps", async (req, res) => {
     const { key, name, description, imageUrl, mapUrl, enabled } = req.body;
     if (!key || !name) {
       return res.status(400).json({ error: "Missing map key or name" });
     }
+
+    const normalizedMapUrl = typeof mapUrl === "string" ? mapUrl.trim() : "";
+    if (!normalizedMapUrl) {
+      return res.status(400).json({ error: "Map Data URL is required" });
+    }
+
+    const validation = await validateMapDataUrl(normalizedMapUrl, req);
+    if (!validation.ok) {
+      return res.status(400).json({ error: validation.error });
+    }
+
     db.createAdminMap({
       key: String(key),
       name: String(name),
       description: description ? String(description) : "",
       imageUrl: imageUrl ? String(imageUrl) : undefined,
-      mapUrl: mapUrl ? String(mapUrl) : undefined,
+      mapUrl: validation.normalizedBaseUrl,
       enabled: enabled !== false,
     });
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+      validated: {
+        manifestUrl: validation.manifestUrl,
+        files: validation.files,
+      },
+    });
   });
 
   router.delete("/maps/:id", (req, res) => {

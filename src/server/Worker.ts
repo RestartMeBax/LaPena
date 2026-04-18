@@ -39,6 +39,7 @@ import { applyStaticAssetCacheControl } from "./StaticAssetCache";
 import { verifyTurnstileToken } from "./Turnstile";
 import { WorkerLobbyService } from "./WorkerLobbyService";
 import { initWorkerMetrics } from "./WorkerMetrics";
+import { getCustomMapsDir } from "./CustomMapStorage";
 
 const config = getServerConfigFromServer();
 
@@ -66,7 +67,7 @@ export async function startWorker() {
   const __dirname = path.dirname(__filename);
 
   const app = express();
-  app.use(express.json({ limit: "5mb" }));
+  app.use(express.json({ limit: "50mb" }));
   const server = http.createServer(app);
   const wss = new WebSocketServer({
     noServer: true,
@@ -201,6 +202,17 @@ export async function startWorker() {
   registerAdminRoutes(app, authDb);
   registerImageServeRoutes(app, authDb);
   registerShopRoutes(app, authDb);
+  app.use(
+    "/maps",
+    express.static(getCustomMapsDir(), {
+      maxAge: "1y",
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith(".webp")) {
+          res.setHeader("Content-Type", "image/webp");
+        }
+      },
+    }),
+  );
   app.use(
     "/maps",
     express.static(path.join(__dirname, "../../static/maps"), {

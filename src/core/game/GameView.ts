@@ -212,9 +212,9 @@ export class PlayerView {
     spanX: number;
     spanY: number;
   };
-  private skinSampleCache = new Map<string, Colord>();
+  private skinSampleCache = new Map<number, Colord>();
   private skinBorderVariantCache = new Map<
-    string,
+    number,
     {
       neutral: Colord;
       friendly: Colord;
@@ -237,7 +237,22 @@ export class PlayerView {
   private static readonly SKIN_TERRITORY_SPAN_PADDING = 1.2;
   private static readonly SKIN_TILE_THRESHOLD = 96;
   private static readonly SKIN_MAX_REPEAT = 6;
-  private static readonly SKIN_SAMPLE_CACHE_MAX = 4096;
+  private static readonly SKIN_SAMPLE_CACHE_MAX = 16384;
+  private static readonly SKIN_NEAREST_SAMPLE_TEXTURE_SIZE = 512;
+
+  private trimCacheMap<T>(cache: Map<number, T>, maxEntries: number) {
+    while (cache.size > maxEntries) {
+      const firstKey = cache.keys().next().value;
+      if (firstKey === undefined) {
+        break;
+      }
+      cache.delete(firstKey);
+    }
+  }
+
+  private tileCacheKey(worldX: number, worldY: number): number {
+    return worldY * this.game.width() + worldX;
+  }
 
   private resetSkinCaches() {
     this.skinSampleCache.clear();
@@ -482,7 +497,7 @@ export class PlayerView {
       this.borderColorCache.clear();
     }
 
-    const cacheKey = `${worldX},${worldY}`;
+    const cacheKey = this.tileCacheKey(worldX, worldY);
     const cached = this.skinSampleCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -523,6 +538,20 @@ export class PlayerView {
 
     const p = this.imagePixels;
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    const preferNearestSampling =
+      this.imgW >= PlayerView.SKIN_NEAREST_SAMPLE_TEXTURE_SIZE ||
+      this.imgH >= PlayerView.SKIN_NEAREST_SAMPLE_TEXTURE_SIZE;
+
+    const sampleNearest = (sx: number, sy: number) => {
+      const x = Math.max(0, Math.min(this.imgW - 1, Math.round(sx)));
+      const y = Math.max(0, Math.min(this.imgH - 1, Math.round(sy)));
+      const idx = (y * this.imgW + x) * 4;
+      return {
+        r: p[idx],
+        g: p[idx + 1],
+        b: p[idx + 2],
+      };
+    };
 
     const bilinear = (sx: number, sy: number) => {
       const x0 = Math.floor(sx);
@@ -551,19 +580,15 @@ export class PlayerView {
       };
     };
 
-    const c = bilinear(fx, fy);
+    const c = preferNearestSampling ? sampleNearest(fx, fy) : bilinear(fx, fy);
 
     const sampled = colord({
       r: Math.round(c.r),
       g: Math.round(c.g),
       b: Math.round(c.b),
     });
-    if (this.skinSampleCache.size >= PlayerView.SKIN_SAMPLE_CACHE_MAX) {
-      this.skinSampleCache.clear();
-      this.skinBorderVariantCache.clear();
-      this.borderColorCache.clear();
-    }
     this.skinSampleCache.set(cacheKey, sampled);
+    this.trimCacheMap(this.skinSampleCache, PlayerView.SKIN_SAMPLE_CACHE_MAX);
     return sampled;
   }
 
@@ -579,7 +604,7 @@ export class PlayerView {
     defendedFriendly: { light: Colord; dark: Colord };
     defendedEmbargo: { light: Colord; dark: Colord };
   } {
-    const key = `${worldX},${worldY}`;
+    const key = this.tileCacheKey(worldX, worldY);
     const cached = this.skinBorderVariantCache.get(key);
     if (cached) {
       return cached;
@@ -598,10 +623,8 @@ export class PlayerView {
       defendedEmbargo: theme.defendedBorderColors(embargo),
     };
 
-    if (this.skinBorderVariantCache.size >= PlayerView.SKIN_SAMPLE_CACHE_MAX) {
-      this.skinBorderVariantCache.clear();
-    }
     this.skinBorderVariantCache.set(key, variants);
+    this.trimCacheMap(this.skinBorderVariantCache, PlayerView.SKIN_SAMPLE_CACHE_MAX);
     return variants;
   }
 

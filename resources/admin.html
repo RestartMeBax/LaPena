@@ -760,7 +760,7 @@
                 <div class="field"><label>Map Key</label><input id="mapGeneratorKey" placeholder="custom_world_1" /></div>
                 <div class="field"><label>Map Name</label><input id="mapGeneratorName" placeholder="Custom World 1" /></div>
               </div>
-              <div class="field"><label>Map Data URL (generated map folder)</label><input id="mapGeneratorDataUrl" placeholder="https://cdn.example.com/maps/custom_world_1" /></div>
+              <div class="field"><label>Map Data URL (generated map folder)</label><input id="mapGeneratorDataUrl" placeholder="auto: /maps/<map_key> (or paste your CDN URL)" /></div>
               <div class="field"><label>Description (optional)</label><input id="mapGeneratorDescription" placeholder="Generated from heightmap" /></div>
               <div class="field">
                 <label>Water <= <span id="mapGeneratorWaterVal">0.40</span></label>
@@ -1563,6 +1563,14 @@
           .join(" ");
       }
 
+      function defaultMapDataUrlFromKey(key) {
+        const normalized = slugify(key);
+        if (!normalized) {
+          return "";
+        }
+        return `/maps/${normalized}`;
+      }
+
       function prefillMapGeneratorFieldsFromSource() {
         if (!mapGeneratorSource) {
           return;
@@ -1582,6 +1590,11 @@
         if (!descEl.value.trim()) {
           descEl.value = "Generated from image-to-map tool";
         }
+
+        const dataUrlEl = document.getElementById("mapGeneratorDataUrl");
+        if (!dataUrlEl.value.trim()) {
+          dataUrlEl.value = defaultMapDataUrlFromKey(keyEl.value);
+        }
       }
 
       function applyGeneratorFieldsToMapForm() {
@@ -1589,12 +1602,20 @@
         const fallbackName = titleFromMapKey(key);
         const name = document.getElementById("mapGeneratorName").value.trim() || fallbackName;
         const description = document.getElementById("mapGeneratorDescription").value.trim();
-        const mapUrl = document.getElementById("mapGeneratorDataUrl").value.trim();
+        const enteredMapUrl = document.getElementById("mapGeneratorDataUrl").value.trim();
+        const mapUrl = enteredMapUrl || defaultMapDataUrlFromKey(key);
 
-        if (!key || !name || !mapUrl) {
-          setStatus("Map Key, Map Name, and Map Data URL are required in Image To Map.", false);
+        if (!key || !name) {
+          setStatus("Map Key and Map Name are required in Image To Map.", false);
           return false;
         }
+
+        if (!mapUrl) {
+          setStatus("Could not infer Map Data URL. Enter it manually.", false);
+          return false;
+        }
+
+        document.getElementById("mapGeneratorDataUrl").value = mapUrl;
 
         document.getElementById("mapKey").value = key;
         document.getElementById("mapName").value = name;
@@ -2430,8 +2451,12 @@
 
       document.getElementById("mapGeneratorKey").addEventListener("change", () => {
         const nameEl = document.getElementById("mapGeneratorName");
+        const dataUrlEl = document.getElementById("mapGeneratorDataUrl");
         if (!nameEl.value.trim()) {
           nameEl.value = titleFromMapKey(document.getElementById("mapGeneratorKey").value);
+        }
+        if (!dataUrlEl.value.trim()) {
+          dataUrlEl.value = defaultMapDataUrlFromKey(document.getElementById("mapGeneratorKey").value);
         }
       });
 

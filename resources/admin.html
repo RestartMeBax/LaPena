@@ -2511,6 +2511,7 @@
             map4xBinBase64: payload.map4xBinBase64,
             map16xBinBase64: payload.map16xBinBase64,
           }),
+          timeoutMs: 60000,
         });
 
         if (!response.ok || !response.body?.success) {
@@ -2976,14 +2977,6 @@
       document.getElementById("verifyMapFiles").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         await setButtonBusy(button, "Verifying...", async () => {
-          const uploaded = await uploadSelectedMapBundle({
-            silentWhenEmpty: true,
-            autoGenerateFromImageTool: true,
-          });
-          if (uploaded === false) {
-            return;
-          }
-
           if (!requireFields([["mapUrl", "Map Data URL"]])) {
             return;
           }
@@ -3021,6 +3014,20 @@
           if (!document.getElementById("mapGeneratorDataUrl").value.trim() && defaultMapUrl) {
             document.getElementById("mapGeneratorDataUrl").value = defaultMapUrl;
           }
+
+          setStatus("Generated files. Uploading to server...");
+          const uploaded = await uploadMapBundlePayload(key, generatedPayload);
+          if (!uploaded) {
+            return;
+          }
+
+          const mapUrl = document.getElementById("mapUrl").value.trim();
+          if (!mapUrl) {
+            setStatus("Files uploaded but Map Data URL is missing.", false);
+            return;
+          }
+
+          await verifyMapDataUrlOrShowError(mapUrl);
         });
       });
 

@@ -1378,6 +1378,18 @@
         return trimmed;
       }
 
+      function normalizeMapDataUrlAbsolute(value) {
+        const normalized = normalizeMapDataUrl(value);
+        if (!normalized) return "";
+        try {
+          return new URL(normalized, window.location.origin)
+            .toString()
+            .replace(/\/+$/, "");
+        } catch {
+          return normalized;
+        }
+      }
+
       function setMapValidationHint(message, ok = true) {
         const hint = document.getElementById("mapValidationHint");
         if (!hint) return;
@@ -1394,7 +1406,9 @@
       }
 
       function isMapValidationFreshForCurrentInput() {
-        const currentBaseUrl = normalizeMapDataUrl(document.getElementById("mapUrl").value);
+        const currentBaseUrl = normalizeMapDataUrlAbsolute(
+          document.getElementById("mapUrl").value,
+        );
         return (
           Boolean(currentBaseUrl) &&
           mapValidationState.verifiedBaseUrl === currentBaseUrl
@@ -1822,9 +1836,7 @@
           return false;
         }
 
-        const normalizedBaseUrl = new URL(normalized, window.location.origin)
-          .toString()
-          .replace(/\/+$/, "");
+        const normalizedBaseUrl = normalizeMapDataUrlAbsolute(normalized);
         const manifestUrl = `${normalizedBaseUrl}/manifest.json`;
 
         try {
@@ -1911,7 +1923,9 @@
             return false;
           }
 
-          const serverBaseUrl = response.body.normalizedBaseUrl || normalizedBaseUrl;
+          const serverBaseUrl = normalizeMapDataUrlAbsolute(
+            response.body.normalizedBaseUrl || normalizedBaseUrl,
+          );
           mapValidationState = {
             verifiedBaseUrl: serverBaseUrl,
             verifiedAt: Date.now(),

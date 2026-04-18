@@ -1,0 +1,19 @@
+{
+  "name": "Kasr Map",
+  "nations": [],
+  "map": {
+    "width": 2048,
+    "height": 1024,
+    "num_land_tiles": 900636
+  },
+  "map4x": {
+    "width": 1024,
+    "height": 512,
+    "num_land_tiles": 213691
+  },
+  "map16x": {
+    "width": 512,
+    "height": 256,
+    "num_land_tiles": 49094
+  }
+}

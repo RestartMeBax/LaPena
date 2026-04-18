@@ -136,7 +136,7 @@ export async function startWorker() {
 
   app.set("trust proxy", 3);
   app.use(compression());
-  app.use(express.json());
+  app.use(express.json({ limit: "50mb" }));
 
   // CORS middleware for browser-to-API requests
   app.use((req, res, next) => {

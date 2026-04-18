@@ -1791,6 +1791,29 @@
         return body.url || "";
       }
 
+      async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => {
+          controller.abort();
+        }, timeoutMs);
+        try {
+          return await fetch(url, {
+            ...options,
+            signal: controller.signal,
+          });
+        } finally {
+          window.clearTimeout(timer);
+        }
+      }
+
+      async function checkUrlReachableClient(url, timeoutMs = 12000) {
+        const head = await fetchWithTimeout(url, { method: "HEAD", credentials: "include" }, timeoutMs);
+        if (head.status !== 405) {
+          return head;
+        }
+        return fetchWithTimeout(url, { method: "GET", credentials: "include" }, timeoutMs);
+      }
+
       async function verifyMapDataUrlOrShowError(mapUrl) {
         const normalized = normalizeMapDataUrl(mapUrl);
         if (!normalized) {
@@ -1799,31 +1822,107 @@
           return false;
         }
 
-        const response = await requestJson("/api/admin/maps/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mapUrl: normalized }),
-          timeoutMs: 20000,
-        });
+        const normalizedBaseUrl = new URL(normalized, window.location.origin)
+          .toString()
+          .replace(/\/+$/, "");
+        const manifestUrl = `${normalizedBaseUrl}/manifest.json`;
 
-        if (!response.ok || !response.body?.ok) {
-          const error = response.body?.error || "Map Data URL validation failed.";
-          setStatus(error, false);
-          invalidateMapValidation();
-          return false;
+        try {
+          const manifestResp = await fetchWithTimeout(
+            manifestUrl,
+            { headers: { Accept: "application/json" }, credentials: "include" },
+            12000,
+          );
+          if (!manifestResp.ok) {
+            throw new Error(`Manifest request failed (${manifestResp.status}) at ${manifestUrl}`);
+          }
+
+          const contentType = (manifestResp.headers.get("content-type") || "").toLowerCase();
+          const manifestText = await manifestResp.text();
+          if (
+            contentType.includes("text/html") ||
+            manifestText.trimStart().startsWith("<!doctype") ||
+            manifestText.trimStart().startsWith("<html")
+          ) {
+            throw new Error("Manifest URL returned HTML instead of JSON.");
+          }
+
+          let manifest;
+          try {
+            manifest = JSON.parse(manifestText);
+          } catch {
+            throw new Error(`Manifest JSON is invalid at ${manifestUrl}`);
+          }
+
+          const hasMeta =
+            manifest &&
+            typeof manifest === "object" &&
+            manifest.map &&
+            manifest.map4x &&
+            manifest.map16x;
+          if (!hasMeta) {
+            throw new Error("Manifest JSON is missing required map metadata (map, map4x, map16x).");
+          }
+
+          const files = {
+            mapBin: `${normalizedBaseUrl}/map.bin`,
+            map4xBin: `${normalizedBaseUrl}/map4x.bin`,
+            map16xBin: `${normalizedBaseUrl}/map16x.bin`,
+          };
+          const checks = await Promise.all([
+            checkUrlReachableClient(files.mapBin, 10000),
+            checkUrlReachableClient(files.map4xBin, 10000),
+            checkUrlReachableClient(files.map16xBin, 10000),
+          ]);
+
+          if (!checks[0].ok) {
+            throw new Error(`Missing required file map.bin (${checks[0].status}) at ${files.mapBin}`);
+          }
+          if (!checks[1].ok) {
+            throw new Error(`Missing required file map4x.bin (${checks[1].status}) at ${files.map4xBin}`);
+          }
+          if (!checks[2].ok) {
+            throw new Error(`Missing required file map16x.bin (${checks[2].status}) at ${files.map16xBin}`);
+          }
+
+          mapValidationState = {
+            verifiedBaseUrl: normalizedBaseUrl,
+            verifiedAt: Date.now(),
+          };
+          setMapValidationHint(
+            `Verified required files at ${normalizedBaseUrl}. You can now approve and save.`,
+            true,
+          );
+          setStatus(`Map Data URL verified: ${manifestUrl}`);
+          return true;
+        } catch (directError) {
+          const response = await requestJson("/api/admin/maps/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mapUrl: normalized }),
+            timeoutMs: 20000,
+          });
+
+          if (!response.ok || !response.body?.ok) {
+            const fallbackError = response.body?.error || "Map Data URL validation failed.";
+            const directMessage = directError?.message || "Direct map file checks failed.";
+            setStatus(`${directMessage} ${fallbackError}`, false);
+            invalidateMapValidation();
+            return false;
+          }
+
+          const serverBaseUrl = response.body.normalizedBaseUrl || normalizedBaseUrl;
+          mapValidationState = {
+            verifiedBaseUrl: serverBaseUrl,
+            verifiedAt: Date.now(),
+          };
+          setMapValidationHint(
+            `Verified required files at ${serverBaseUrl}. You can now approve and save.`,
+            true,
+          );
+          setStatus(`Map Data URL verified: ${response.body.manifestUrl || `${serverBaseUrl}/manifest.json`}`);
+          return true;
         }
-
-        const normalizedBaseUrl = response.body.normalizedBaseUrl || normalized;
-        mapValidationState = {
-          verifiedBaseUrl: normalizedBaseUrl,
-          verifiedAt: Date.now(),
-        };
-        setMapValidationHint(
-          `Verified required files at ${normalizedBaseUrl}. You can now approve and save.`,
-          true,
-        );
-        setStatus(`Map Data URL verified: ${response.body.manifestUrl || `${normalizedBaseUrl}/manifest.json`}`);
-        return true;
       }
 
       function normalizeMapKey(value) {

@@ -2483,7 +2483,16 @@
       function resolveMapBundleKey() {
         const mapKeyInput = document.getElementById("mapKey");
         const generatorKeyInput = document.getElementById("mapGeneratorKey");
-        const keyRaw = mapKeyInput.value.trim() || generatorKeyInput.value.trim();
+        const mapUrlInput = document.getElementById("mapUrl");
+
+        let keyRaw = mapKeyInput.value.trim() || generatorKeyInput.value.trim();
+        if (!keyRaw) {
+          const mapUrlRaw = mapUrlInput.value.trim();
+          const normalizedUrl = normalizeMapDataUrl(mapUrlRaw);
+          const fromUrl = normalizedUrl.split("/").filter(Boolean).pop() || "";
+          keyRaw = fromUrl;
+        }
+
         const key = slugify(keyRaw);
         if (!key) {
           return "";
@@ -3076,6 +3085,14 @@
       document.getElementById("verifyMapFiles").addEventListener("click", async (event) => {
         const button = event.currentTarget;
         await setButtonBusy(button, "Verifying...", async () => {
+          const uploaded = await uploadSelectedMapBundle({
+            silentWhenEmpty: true,
+            autoGenerateFromImageTool: true,
+          });
+          if (uploaded === false) {
+            return;
+          }
+
           if (!requireFields([["mapUrl", "Map Data URL"]])) {
             return;
           }
